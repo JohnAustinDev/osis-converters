@@ -29,7 +29,7 @@ our ($INOSIS, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, %RESP, %OSIS_ABBR,
     $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS,
     %ANNOTATE_TYPE, %CONV_PUB_SETS, @CONV_PUB_SETS, $RAM_GB_EBOOKS,
     $RAM_MB_EBOOKS_PERBOOK, $RAM_GB_EBOOKS_DEF, $MOD_OUTDIR,
-    $RAM_MB_EBOOKS_PERBOOK_DEF);
+    $RAM_MB_EBOOKS_PERBOOK_DEF, $FB2);
 
 our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
 
@@ -239,19 +239,19 @@ sub osis2pubs {
           &subPubFileName($title, $scope),
           $serverDirsHP->{$scope}
         );
+
+        # Create sub-publication-books
+        $forkArgs .= &createParts(
+          \%done,
+          'book',
+          $convertTo,
+          $bookSelect,
+          $scope,
+          $title,
+          $serverDirsHP->{$scope}
+        );
       }
       $done{$scope}++;
-
-      # Create sub-publication-books
-      $forkArgs .= &createParts(
-        \%done,
-        'book',
-        $convertTo,
-        $bookSelect,
-        $scope,
-        $title,
-        $serverDirsHP->{$scope}
-      );
     }
 
     # Create the tran-publication-books
@@ -439,9 +439,10 @@ MAKING " . uc($convertTo) . ": scope=$scope, type=$pubSet, " .
   # copy OSIS file
   &copy($osis, "$tmp/$MOD.xml");
 
-  # copy osis2html.xsl
-  copy("$SCRD/lib/osis2html.xsl", $tmp);
+  # copy osis2html.xsl and its dependencies
+  &copyOsis2htmlXSL($tmp);
   &copyFunctionsXSL($tmp);
+  copy("$SCRD/lib/osis2other/osis2other.xsl", $tmp);
 
   # copy css file(s): always copy html.css and then if needed also copy
   # $convertTo.css if it exists
@@ -620,7 +621,7 @@ of this material to exclude it from HTML publications.");
     &makeEbook($tmp, 'azw3', $cover, $scope, $pubName, $pubSubdir);
   }
   if ($convertTo eq "ebooks" && $createTypes =~ /fb2/i) {
-    &makeEbook($tmp, 'fb2', $cover, $scope, $pubName, $pubSubdir);
+    #&makeEbook($tmp, 'fb2', $cover, $scope, $pubName, $pubSubdir);
   }
 }
 
@@ -1324,7 +1325,7 @@ sub makeHTML {
 
 sub makeEbook {
   my $tmp = shift;    # dir where $MOD.xml and the other files have been copied
-  my $format = shift; # epub or azw3
+  my $format = shift; # epub or azw3 or fb2
   my $cover = shift;  # path to cover image
   my $scope = shift;
   my $pubName = shift;
@@ -1338,12 +1339,12 @@ sub makeEbook {
   my $cmd;
   # FB2 has its own XSLT transform whereas others use Calibre.
   if ($format eq 'fb2') {
+    my @cssFiles;
     my %params = (
-      'MAINMOD_URI' => &getModuleOsisFile($MAINMOD),
-      'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
+      'css' => join(',', @cssFiles),
     );
     $cmd = "saxonb-xslt -l -ext:on";
-    $cmd .= " -xsl:" . &escfile("$SCRD/lib/osis2fb2.xsl");
+    $cmd .= " -xsl:" . &escfile("$SCRD/lib/osis2other/osis2fb2.xsl");
     $cmd .= " -s:" . &escfile("$tmp/$MOD.xml");
     $cmd .= " -o:" . &escfile("$tmp/$MOD.$format");
     foreach my $p (sort keys %params) {
@@ -1418,6 +1419,15 @@ sub makeEbook {
         if ($failed) {&Error("epubcheck validation failed for \"$out\"");}
       }
       else {&Note("Epub validates!: \"$out\"");}
+    } elsif ($format eq 'fb2') {
+      my $cmd = &escfile("xmllint") . " --noout --schema \"$FB2/FictionBook.xsd\" " . &escfile($out);
+      my $res = &shell($cmd, 3, 1);
+      if ($res =~ /error/i) {
+        &Log($res . "\n", 1);
+        &Error("xmllint validation failed for \"$out\"");
+      } else {
+        &Note("FB2 validates!: \"$out\"");
+      }
     }
     my @outdirs;
     if ($pubSubdir) {
@@ -1460,7 +1470,28 @@ sub copyFunctionsXSL {
   }
   else {&ErrorBug("Could not open $file", 1);}
   close(FUNC);
-  if ($c != 3) {&ErrorBug("Failed to add context to '$file' at '$dest/$name'.", 1);}
+  if ($c != 3) {&ErrorBug("copyFunctionsXSL failed: '$file' => '$dest/$name'", 1);}
+}
+
+# Copy and update the functions.xsl path of osis2html.xsl, so it may run in
+# the Calibre plugin.
+sub copyOsis2htmlXSL {
+  my $dest = shift;
+
+  my $file = "$SCRD/lib/osis2other/osis2html.xsl";
+  my $name = $file; $name =~ s/^.*\///;
+  my $c = 0;
+  if (open(INPXSL, $READLAYER, $file)) {
+    if (open(OUTXSL, $WRITELAYER, "$dest/$name")) {
+      while(<INPXSL>) {
+        if ($_ =~ s/(href="\.)(\.\/common)(\/functions\.xsl")/$1$3/) {$c++;}
+        print OUTXSL $_;
+      }
+    } else {&ErrorBug("Could not open $dest/$name", 1);}
+    close(OUTXSL);
+  } else {&ErrorBug("Could not open $file", 1);}
+  close(INPXSL);
+  if ($c != 1) {&ErrorBug("copyOsis2htmlXSL failed: '$file' => '$dest/$name'", 1);}
 }
 
 sub removeAggregateEntries {

@@ -152,7 +152,7 @@ our %CONV_BIN_DEPENDENCIES = (
   'sfm2osis'     => [ 'XMLLINT' ],
   'osis2osis'    => [ 'XMLLINT' ],
   'osis2sword'   => [ 'SWORD_BIN' ],
-  'osis2ebooks'  => [ 'CALIBRE' ],
+  'osis2ebooks'  => [ 'CALIBRE', 'FB2' ],
   'osis2gobible' => [ 'GO_BIBLE_CREATOR' ],
 );
 
@@ -161,6 +161,7 @@ our %SYSTEM_DEFAULT_PATHS = (
   'MODULETOOLS_BIN'  => "~/.osis-converters/src/Module-tools/bin",
   'GO_BIBLE_CREATOR' => "~/.osis-converters/GoBibleCreator.245",
   'SWORD_BIN'        => "~/.osis-converters/src/sword/build/utilities",
+  'FB2'              => "~/.osis-converters/src/fb2",
 );
 
 # Compatibility tests for executable dependencies
@@ -183,6 +184,8 @@ our %CONV_BIN_TEST = (
                           "Saxon 9" ],
   'JAVA'             => [ 'java -version',
                           "openjdk version \"10.", 1 ], # NOT openjdk 10.
+  'FB2'              => [ "stat 'FB2/FictionBook.xsd'",
+                          'Size' ]
 );
 
 $SCRIPT =~ s/\\/\//g;

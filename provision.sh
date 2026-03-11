@@ -66,6 +66,17 @@ else
   git pull
 fi
 
+# FB2 schema for validation
+if [ ! -e $HOME/.osis-converters/src/fb2/.git ]; then
+  cd "$HOME/.osis-converters/src"
+  git clone https://github.com/gribuser/fb2
+else
+  cd $HOME/.osis-converters/src/fb2
+  git stash
+  git checkout master
+  git pull
+fi
+
 # SWORD 1.8 from subversion
 swordRev=3900
 if [ ! -e $HOME/.osis-converters/src/sword ]; then
@@ -81,17 +92,17 @@ if [[ ${svnrev:0:${#swordRev}} != "$swordRev" ]]; then
   svn checkout -r $swordRev https://crosswire.org/svn/sword/trunk sword
   mkdir sword/build
   cd sword
-  
+
   # fix xml2gbs.cpp bug (feature??) where '.' in a GenBook key causes all characters before it to be ignored!
   cp "$VCODE/sword-patch/xml2gbs.cpp" "$HOME/.osis-converters/src/sword/utilities/"
   # fix osis2mod bug that drops paragraph type when converting to milestone div
   # fix osis2mod bug that puts New Testament intro at end of Malachi
   # fix osis2mod bug that fails to treat subSection titles as pre-verse titles
   cp "$VCODE/sword-patch/osis2mod.cpp" "$HOME/.osis-converters/src/sword/utilities/"
-  
+
   cd build
   cmake -G "Unix Makefiles" -DSWORD_PERL="TRUE" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
-  make 
+  make
   sudo make install
 fi
 

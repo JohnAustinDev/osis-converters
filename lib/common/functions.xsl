@@ -1196,45 +1196,61 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     </value-of>
   </function>
 
-  <!-- The following extension allows XSLT to read binary files into base64 strings. The reasons for the munge are:
+  <!-- The following extension allows XSLT to read binary files into base64
+  strings. The reasons for the munge are:
   - Only Java functions are supported by saxon.
-  - Java exec() immediately returns, without blocking, making another blocking method a necessity.
-  - Saxon seems to limit Java exec() so it can only be run by <message>, meaning there is no usable return value of any kind,
-    thus no way to monitor the process, nor return data from exec(), other than having it always write to a file.
-  - XSLT's unparsed-text-available() is its only file existence check, and it only works on text files (not binaries).
-  - Bash shell scripting provides all necessary functionality, but XSLT requires it to be written while the context is
-    outside of any temporary trees (hence the need to call prepareRunTime and cleanupRunTime at the proper moment). -->
+  - Java exec() immediately returns, without blocking, making another blocking
+    method a necessity.
+  - Saxon seems to limit Java exec() so it can only be run by <message>,
+    meaning there is no usable return value of any kind, thus no way to monitor
+    the process, nor return data from exec(), other than having it always write
+    to a file.
+  - XSLT's unparsed-text-available() is its only file existence check, and it
+    only works on text files (not binaries).
+  - Bash shell scripting provides all necessary functionality, but XSLT
+    requires it to be written while the context is outside of any temporary
+    trees (hence the need to call prepareRunTime and cleanupRunTime at the
+    proper moment).
+  -->
   <variable name="DOCDIR" select="tokenize(document-uri(/), '[^/]+$')[1]" as="xs:string"/>
   <variable name="runtimeDir" select="file:new(uri:new($DOCDIR))"/>
   <variable name="envp" as="xs:string+"><value-of select="''"/></variable>
   <variable name="readBinaryResource" select="concat(replace($DOCDIR, '^file:', ''), 'tmp_osis2fb2.xsl.rbr.sh')" as="xs:string"/>
   <variable name="tmpResult" select="concat(replace($DOCDIR, '^file:', ''), 'tmp_osis2fb2.xsl.txt')" as="xs:string"/>
   <function name="oc:read-binary-resource">
-    <param name="resource" as="xs:string"/>
-    <message>JAVA: <value-of select="runtime:exec(runtime:getRuntime(), ($readBinaryResource, $resource), $envp, $runtimeDir)"/>: Read <value-of select="$resource"/></message>
+    <param name="relPath" as="xs:string"/>
+    <variable name="fullPath" select="concat(replace($DOCDIR, '^file:', ''), $relPath)"/>
+    <message>JAVA: <value-of select="runtime:exec(runtime:getRuntime(), ($readBinaryResource, $fullPath), $envp, $runtimeDir)"/>: Read <value-of select="$fullPath"/></message>
     <call-template name="sleep"/>
     <if test="not(unparsed-text-available($tmpResult))"><call-template name="sleep"><with-param name="ms" select="100"/></call-template></if>
     <if test="not(unparsed-text-available($tmpResult))"><call-template name="sleep"><with-param name="ms" select="1000"/></call-template></if>
     <if test="not(unparsed-text-available($tmpResult))"><call-template name="sleep"><with-param name="ms" select="10000"/></call-template></if>
-    <if test="not(unparsed-text-available($tmpResult))"><call-template name="Error"><with-param name="msg" select="'Failed writing tmpResult'"/></call-template></if>
+    <if test="not(unparsed-text-available($tmpResult))">
+      <call-template name="Error"><with-param name="msg" select="concat('Could not read: ', $tmpResult)"/></call-template>
+    </if>
     <variable name="result">
       <if test="unparsed-text-available($tmpResult)"><value-of select="unparsed-text($tmpResult)"/></if>
     </variable>
-    <if test="starts-with($result, 'nofile')"><call-template name="Error"><with-param name="msg" select="concat('Failed to locate: ', $resource)"/></call-template></if>
-    <if test="not(starts-with($result, 'nofile'))"><value-of select="$result"/></if>
+    <choose>
+      <when test="starts-with($result, 'noFILE')">
+        <call-template name="Error"><with-param name="msg" select="concat('Could not read: ', $fullPath)"/></call-template>
+        <value-of select="''"/>
+      </when>
+      <otherwise>
+        <value-of select="$result"/>
+      </otherwise>
+    </choose>
   </function>
   <template name="oc:prepareRunTime">
     <result-document href="{$readBinaryResource}" method="text">#!/bin/bash
 rm -r <value-of select="$tmpResult"/>
 touch <value-of select="$tmpResult"/>
-chmod -r <value-of select="$tmpResult"/>
-if [ -s $1 ]; then
-  base64 $1 > <value-of select="$tmpResult"/>
+if [[ ! -z $1 &amp;&amp; -s $1 ]]; then
+  base64 $1 &#62; <value-of select="$tmpResult"/>
 else
-  echo nofile > <value-of select="$tmpResult"/>
+  echo noFILE &#62; <value-of select="$tmpResult"/>
 fi
-chmod +r <value-of select="$tmpResult"/>
-  </result-document>
+    </result-document>
     <message>JAVA: <value-of select="runtime:exec(runtime:getRuntime(), ('chmod', '+x', $readBinaryResource), $envp, $runtimeDir)"/>: Write runtime executable</message>
   </template>
   <template name="oc:cleanupRunTime">
@@ -1242,7 +1258,7 @@ chmod +r <value-of select="$tmpResult"/>
     <message>JAVA: <value-of select="runtime:exec(runtime:getRuntime(), ('rm', '-r', $tmpResult), $envp, $runtimeDir)"/>: Delete tmpResult</message>
   </template>
   <template name="sleep" xmlns:thread="java.lang.Thread">
-    <param name="ms" select="10"/>
+    <param name="ms" select="10" as="xs:integer"/>
     <if test="$ms!=10"><call-template name="Warn"><with-param name="msg" select="concat('Sleeping ', $ms, 'ms')"/></call-template></if>
     <message select="thread:sleep($ms)"/>
   </template>
@@ -1252,7 +1268,7 @@ chmod +r <value-of select="$tmpResult"/>
     <param name="msg"/>
     <param name="exp"/>
     <param name="die" select="'no'"/>
-    <message terminate="{$die}" select="oc:log('ERROR', $msg, 'SOLUTION', $exp)"/>
+    <message terminate="{$die}" select="concat(oc:log('ERROR', $msg, 'SOLUTION', $exp), trace(., 'TRACE: '))"/>
   </template>
 
   <template name="ErrorBug">

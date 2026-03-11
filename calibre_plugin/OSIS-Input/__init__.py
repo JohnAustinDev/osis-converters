@@ -16,39 +16,40 @@ class OsisInput(InputFormatPlugin):
     supported_platforms = ['linux']
 
     def convert(self, stream, options, file_ext, log, accelerators):
-            
+
         # Get the directory of our input files
         filePath = stream.name
         filePos = filePath.rfind('/')
         inputDir = filePath[:filePos]
         inputOSIS = filePath[(filePos+1):]
-        
+
         # Copy css
         cssFileNames = []
         for afile in glob.glob("%s/css/*" % inputDir):
-            shutil.copy(afile, '.')                                                                                                                              
+            shutil.copy(afile, '.')
             cssFileNames.append(os.path.basename(afile))
-            
+
         # Copy images
         for afile in glob.glob("%s/images/*.*" % inputDir):
             if not os.path.exists('./images'):
-                os.makedirs('./images')                                                                                                                                 
+                os.makedirs('./images')
             shutil.copy(afile, './images')
-            
+
         # Copy OSIS files
-        for afile in glob.glob("%s/*.xml" % inputDir):                                                                                                                                   
+        for afile in glob.glob("%s/*.xml" % inputDir):
             shutil.copy(afile, '.')
-            
+
         # Copy osis2html.xsl
         shutil.copy(inputDir + "/osis2html.xsl", '.')
+        shutil.copy(inputDir + "/osis2other.xsl", '.')
         shutil.copy(inputDir + "/functions.xsl", '.')
-            
+
         # Transform the OSIS files to XHTML
-        command = ["saxonb-xslt", 
-            "-ext:on", 
-            "-xsl:osis2html.xsl", 
-            "-s:%s" % inputOSIS, 
-            "-o:content.opf", 
+        command = ["saxonb-xslt",
+            "-ext:on",
+            "-xsl:osis2html.xsl",
+            "-s:%s" % inputOSIS,
+            "-o:content.opf",
             "css=%s" % (",").join(sorted(cssFileNames))
         ]
         print("Running XSLT: " + " ".join(command))
@@ -56,6 +57,6 @@ class OsisInput(InputFormatPlugin):
         if p.returncode != 0:
             print("ERROR: XSLT failed!:")
         print(p.stdout)
-        
+
         return os.path.abspath('content.opf')
-        
+
