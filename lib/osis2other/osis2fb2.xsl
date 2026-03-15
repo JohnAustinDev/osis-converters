@@ -48,17 +48,38 @@
       </with-param>
     </call-template>
 
-    <variable name="preprocessedMainOSIS">
+    <variable name="preprocessedMainOSIS0">
       <call-template name="preprocessMain"/>
     </variable>
 
-    <variable name="preprocessedRefOSIS">
+    <variable name="preprocessedRefOSIS0">
       <call-template name="preprocessDict"/>
     </variable>
 
     <variable name="combinedGlossary">
       <call-template name="combinedGlossary"/>
     </variable>
+
+    <variable name="preprocessedMainOSIS">
+      <variable name="removeDivs">
+        <apply-templates mode="removeDivs" select="$preprocessedMainOSIS0"/>
+      </variable>
+      <apply-templates mode="sections" select="$removeDivs"/>
+    </variable>
+
+    <variable name="preprocessedRefOSIS">
+      <variable name="removeDivs">
+        <apply-templates mode="removeDivs" select="$preprocessedRefOSIS0"/>
+      </variable>
+      <apply-templates mode="sections" select="$removeDivs"/>
+    </variable>
+
+    <result-document href="preprocessedOSIS.xml">
+      <for-each select="($preprocessedMainOSIS, $preprocessedRefOSIS)">
+        <apply-templates mode="whitespace.xsl" select="."/>
+      </for-each>
+      <sequence select="$preprocessedMainOSIS"/>
+    </result-document>
 
     <variable name="fb2">
       <call-template name="fb2">
@@ -125,15 +146,11 @@
         </publish-info>
       </description>
 
-      <for-each select="($preprocessedMainOSIS | $preprocessedRefOSIS)//osisText">
-        <fb2:body>
-          <!-- If our main OSIS file doesn't have a main TOC milestone, then add one -->
-          <if test="not($mainTocMilestone)" xmlns="http://www.w3.org/1999/XSL/Transform">
-            <sequence select="oc:getMainInlineTOC(root(), $combinedGlossary, $preprocessedRefOSIS)"/>
-          </if>
+      <fb2:body>
+        <for-each select="($preprocessedMainOSIS | $preprocessedRefOSIS)">
           <apply-templates mode="tran" select="."/>
-        </fb2:body>
-      </for-each>
+        </for-each>
+      </fb2:body>
 
       <if test="($preprocessedMainOSIS | $preprocessedRefOSIS)//note">
         <fb2:body name="notes">
@@ -143,7 +160,7 @@
               <fb2:title>
                 <fb2:p>
                   <call-template name="getFootnoteSymbol">
-                    <with-param name="classes" select="oc:getClasses(.)"/>
+                    <with-param name="parentName" select="'p'"/>
                   </call-template>
                 </fb2:p>
               </fb2:title>
@@ -165,5 +182,144 @@
 
     </element>
   </template>
+
+  <!-- The fb2:section parent must be body or section, and its siblings must
+  also be section elements. OSIS chapter, keyword and TOC milestone elements
+  will all be transformed into fb2:section elements. So this preprocess step
+  insures the fb2:section schema will be met after that transformation. This
+  step follows these other preprocess steps that have already been run:
+    preprocess_removeSectionDivs
+    preprocess_expelChapterTags
+    preprocess_glossTocMenus
+    preprocess_addGroupAttribs
+  The strategy for FB2 is to remove all div elements and flatten all input
+  documents. Then successively group children by tocElement level 1, 2 then 3
+  where each group leader is either a TOC element or child[1]. NOTE: child[1]
+  always leads the first group and may or may not be a TOC element!
+  IMPORTANT: In the FB2 standard, the detached TOC is determined entirely by
+  the fb2:section elements, whereas the inline TOC is a collection of links.
+  -->
+  <template mode="removeDivs sections" match="node()|@*">
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
+  </template>
+
+  <template mode="removeDivs" priority="1" match="div[@type='x-keyword']">
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
+  </template>
+
+  <template mode="removeDivs" match="header"/>
+
+  <template mode="removeDivs" match="div">
+    <if test="@osisID"><osis:seg type="x-osisID" osisID="{@osisID}"/></if>
+    <apply-templates mode="#current"/>
+  </template>
+
+  <!-- Mark sectionLevelFB2 elements with the level to be used for subsequent
+  grouping into fb2 sections during the sections mode. These section elements
+  will solely determine the FB2 detached TOC. Also write explicit TOC levels to
+  each TOC element because otherwise oo:getTocLevel(.) will no longer work
+  properly after the removeDivs mode transformation! -->
+  <template mode="removeDivs" priority="2" match="
+      chapter[@sID] |
+      div[@type='x-keyword'] |
+      milestone[@type=concat('x-usfm-toc', $TOC)]">
+    <variable name="tocElement" select="
+      if (self::div[@type='x-keyword']) then .//seg[@type='keyword'][1] else ."/>
+    <variable name="fullTitle" select="oo:getTocFullTitle($tocElement)"/>
+    <variable name="level" select="oo:getTocLevel($tocElement)"/>
+    <choose>
+      <when test="
+        contains($fullTitle, '[no_toc]') or
+        contains($fullTitle, '[only_inline_toc]')">
+        <next-match/>
+      </when>
+      <otherwise>
+        <copy>
+          <apply-templates mode="#current" select="@*"/>
+          <if test="not(self::div[@type='x-keyword'])">
+            <sequence select="me:getTocLevelAttribute(.)"/>
+          </if>
+          <attribute name="sectionLevelFB2" select="$level"/>
+          <apply-templates mode="#current"/>
+        </copy>
+      </otherwise>
+    </choose>
+  </template>
+
+  <!-- Each TOC element must have explicit toclevel, which happens for most toc
+  elements in the above template. But although glossary keywords are grouped
+  using their parent div, their seg descendant is the actual tocElement. So add
+  @n to those too now. -->
+  <template mode="removeDivs" match="seg[@type='keyword']">
+    <copy>
+      <apply-templates mode="#current" select="@*"/>
+      <sequence select="me:getTocLevelAttribute(.)"/>
+      <apply-templates mode="#current"/>
+    </copy>
+  </template>
+
+  <!-- TODO: The sectionLevelFB2 attributes are no longer needed or used now. -->
+  <!--<template mode="sections" priority="1" match="@sectionLevelFB2"/>-->
+
+  <template mode="sections" match="osisText">
+    <copy>
+      <apply-templates mode="#current" select="@*"/>
+      <sequence select="me:sections(./node(), 1)"/>
+    </copy>
+  </template>
+
+  <function name="me:getTocLevelAttribute" as="attribute()">
+    <param name="tocElement" as="element()"/>
+    <variable name="fullTitle" select="oo:getTocFullTitle($tocElement)"/>
+    <attribute name="n" select="
+      concat(
+        '[level', oo:getTocLevel($tocElement), ']',
+        replace($fullTitle, '\[level\d\]', '')
+      )"/>
+  </function>
+
+  <function name="me:sections">
+    <param name="children" as="node()*"/>
+    <param name="level" as="xs:integer"/>
+    <choose>
+      <when test="$children[@sectionLevelFB2 = $level]">
+        <for-each-group select="$children" group-starting-with="*[@sectionLevelFB2 = $level]">
+          <choose>
+            <when test="current()[not(@sectionLevelFB2)]">
+              <if test="current-group()//text()[normalize-space()]">
+                <call-template name="ErrorBug">
+<with-param name="msg">Text of FB2 must not proceed the first TOC entry: <value-of select="string(current-group())"/></with-param>
+                </call-template>
+              </if>
+            </when>
+            <otherwise>
+              <!-- Since section id comes from the first contained toc element,
+              and since a section which has section children will reference the
+              same toc element as its first section child, the id of the parent
+              must get '.parent' appended to keep it unique. -->
+              <variable name="isParent" select="
+                current-group()[@sectionLevelFB2 = $level + 1]"/>
+              <variable name="osisID" select="
+                concat(
+                  current()/descendant-or-self::*[@osisID][1]/@osisID,
+                  if ($isParent) then '.parent' else ''
+                )"/>
+              <osis:div type="fb2:section" osisID="{$osisID}" subType="level{$level}">
+                <sequence select="me:sections(current-group(), $level + 1)"/>
+              </osis:div>
+            </otherwise>
+          </choose>
+        </for-each-group>
+      </when>
+      <when test="$level = 1">
+        <osis:div type="fb2:section" subType="level{$level}">
+          <apply-templates mode="sections" select="$children"/>
+        </osis:div>
+      </when>
+      <otherwise>
+        <apply-templates mode="sections" select="$children"/>
+      </otherwise>
+    </choose>
+  </function>
 
 </stylesheet>

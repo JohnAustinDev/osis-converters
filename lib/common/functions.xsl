@@ -457,9 +457,12 @@
   </function>
 
   <function name="oc:titleCase" as="xs:string?">
-    <param name="title" as="xs:string?"/>
+    <param name="title0" as="xs:string?"/>
+    <variable name="title" select="replace($title0, '^(\[[^\]]*\])+', '')"/>
     <choose>
-      <when test="$TitleCase = '1'"><value-of select="string-join(oc:capitalize-first(tokenize($title, '\s+')), ' ')"/></when>
+      <when test="$TitleCase = '1'">
+        <value-of select="string-join(oc:capitalize-first(tokenize($title, '\s+')), ' ')"/>
+      </when>
       <when test="$TitleCase = '2'"><value-of select="upper-case($title)"/></when>
       <otherwise><value-of select="$title"/></otherwise>
     </choose>
@@ -1268,7 +1271,7 @@ fi
     <param name="msg"/>
     <param name="exp"/>
     <param name="die" select="'no'"/>
-    <message terminate="{$die}" select="concat(oc:log('ERROR', $msg, 'SOLUTION', $exp), trace(., 'TRACE: '))"/>
+    <message terminate="{$die}" select="oc:log('ERROR', $msg, 'SOLUTION', $exp)"/>
   </template>
 
   <template name="ErrorBug">

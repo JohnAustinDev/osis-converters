@@ -436,7 +436,8 @@
                $topElement/@type,
                $topElement/@subType)
               ), ' '))"/>
-          <!-- If our main OSIS file doesn't have a main TOC milestone, add one -->
+          <!-- If our main OSIS file doesn't have a main TOC milestone, insert
+          the main inline TOC. -->
           <if test="not($mainTocMilestone) and $isMainNode and
                     $OSISelement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]]"
               xmlns="http://www.w3.org/1999/XSL/Transform">
@@ -508,8 +509,7 @@
       </if>
       <html:a href="#textsym.{oc:id(@osisID)}">
         <call-template name="getFootnoteSymbol">
-          <with-param name="classes"
-            select="normalize-space(string-join((oc:getClasses(.), 'xsl-note-head'), ' '))"/>
+          <with-param name="class" select="'xsl-note-head'"/>
         </call-template>
       </html:a>
       <value-of select="' '"/>
@@ -524,8 +524,7 @@
       </if>
       <html:a href="#textsym.{oc:id(@osisID)}">
         <call-template name="getFootnoteSymbol">
-          <with-param name="classes"
-            select="normalize-space(string-join((oc:getClasses(.), 'xsl-note-head'), ' '))"/>
+          <with-param name="class" select="'xsl-note-head'"/>
         </call-template>
       </html:a>
       <value-of select="' '"/>

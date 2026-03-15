@@ -153,24 +153,17 @@
       <choose>
         <when test="$target = 'html'">
           <html:div id="root-toc">
-            <sequence select="oo:getInlineTocDiv($listElementDoc, true())"/>
+            <sequence select="oo:getInlineToc($listElementDoc, true())"/>
           </html:div>
         </when>
         <when test="$target = 'fb2'">
-          <fb2:section>
-            <fb2:title>
-              <fb2:p>
-                <value-of select="oc:locConf('TranslationTitle', 'ru', $mainRootNode)"/>
-              </fb2:p>
-            </fb2:title>
-            <sequence select="oo:getInlineTocDiv($listElementDoc, true())"/>
-          </fb2:section>
+          <sequence select="oo:getInlineToc($listElementDoc, true())"/>
         </when>
       </choose>
     </if>
   </function>
 
-  <function name="oo:getInlineTOC" as="element()*">
+  <function name="oo:getElementInlineTOC" as="element()*">
     <param name="tocElement" as="element()"/>
 
     <variable name="listElementDoc">
@@ -178,25 +171,26 @@
     </variable>
 
     <if test="count($listElementDoc/*)">
-      <sequence select="oo:getInlineTocDiv($listElementDoc, false())"/>
+      <sequence select="
+        oo:getInlineToc($listElementDoc, false())"/>
     </if>
   </function>
 
-  <function name="oo:getInlineTocDiv" as="element()*">
+  <function name="oo:getInlineToc" as="element()*">
     <param name="listdoc" as="document-node()"/>
     <param name="isTopTOC" as="xs:boolean"/>
 
     <choose>
       <when test="$target = 'html'">
-        <sequence select="oo:getInlineTocDivHTML($listdoc, $isTopTOC)"/>
+        <sequence select="oo:getInlineTocHTML($listdoc, $isTopTOC)"/>
       </when>
       <when test="$target = 'fb2'">
-        <sequence select="oo:getInlineTocDivFB2($listdoc, $isTopTOC)"/>
+        <fb2:p><sequence select="$listdoc/fb2:a"/></fb2:p>
       </when>
     </choose>
   </function>
 
-  <function name="oo:getInlineTocDivHTML" as="element(html:div)">
+  <function name="oo:getInlineTocHTML" as="element(html:div)">
     <param name="listdoc" as="document-node()"/>
     <param name="isTopTOC" as="xs:boolean"/>
     <!-- Inline TOCs by default display as lists of inline-block links
@@ -349,13 +343,6 @@
     </choose>
   </function>
 
-  <function name="oo:getInlineTocDivFB2" as="element(fb2:p)*">
-    <param name="listdoc" as="document-node()"/>
-    <param name="isTopTOC" as="xs:boolean"/>
-
-    <fb2:p><sequence select="$listdoc/fb2:a"/></fb2:p>
-  </function>
-
   <!-- Returns a series of list entry elements, one for every TOC entry that is a
   step below tocNode in the hierarchy. A class is added according to the type of
   entry. EBook glossary keyword lists with greater than $glossaryTocAutoThresh
@@ -479,7 +466,7 @@
               </when>
               <when test="matches(text(), '^\-')"><value-of select="text()"/></when>
               <otherwise>
-                <value-of select="oc:titleCase(oo:getTocTitle(.))"/>
+                <value-of select="oc:titleCase(oo:getTocFullTitle(.))"/>
               </otherwise>
             </choose>
           </variable>
@@ -636,9 +623,9 @@
           then $p2 else oo:getParentTOC($p2)"/>
       </when>
       <when test="oo:isBookTOC($x)">
-      <!-- really, p should use oo:isBookSubGroupTOC(.)[ancestor::div[contains(@scope, $x/@osisID)]
-      but @scope needs to be a book list to work right. -->
-      <variable name="p" select="$x/ancestor::div[@type='bookGroup'][1]/
+        <!-- really, p should use oo:isBookSubGroupTOC(.)[ancestor::div[contains(@scope, $x/@osisID)]
+        but @scope needs to be a book list to work right. -->
+        <variable name="p" select="$x/ancestor::div[@type='bookGroup'][1]/
           descendant::milestone[oo:isBookGroupTOC(.) or oo:isBookSubGroupTOC(.)]
           [. &#60;&#60; $x][last()]"/>
         <sequence select="if (not($p))
@@ -646,7 +633,7 @@
           then $p else oo:getParentTOC($p)"/>
       </when>
       <when test="oo:isBookSubGroupTOC($x)">
-      <variable name="p" select="$x/ancestor::div[@type='bookGroup'][1]/
+        <variable name="p" select="$x/ancestor::div[@type='bookGroup'][1]/
           descendant::milestone[oo:isBookGroupTOC(.)][1]"/>
         <sequence select="if (not($p))
           then () else if (oo:isParentTOC($p))
@@ -721,22 +708,23 @@
     </if>
   </function>
 
-  <!-- oo:getTocAttributes returns attribute nodes for a TOC element -->
+  <!-- oo:getTocAttributes returns attributes for a TOC element -->
   <function name="oo:getTocAttributes" as="attribute()+">
     <param name="tocElement" as="element()"/>
 
     <attribute name="id" select="oc:id($tocElement/@osisID)"/>
 
-    <attribute name="class" select="normalize-space(string-join(oo:getTocClasses($tocElement), ' '))"/>
+    <if test="$target != 'fb2'">
+      <attribute name="class" select="normalize-space(string-join(oo:getTocClasses($tocElement), ' '))"/>
 
-    <if test="not(oo:getTocClasses($tocElement) = ('no_toc', 'only_inline_toc'))">
-      <attribute name="title" select="concat('toclevel-', oo:getTocLevel($tocElement))"/>
+      <if test="not(oo:getTocClasses($tocElement) = ('no_toc', 'only_inline_toc'))">
+        <attribute name="title" select="concat('toclevel-', oo:getTocLevel($tocElement))"/>
+      </if>
     </if>
-
   </function>
 
-  <!-- oo:getTocTitle returns the title text of tocElement -->
-  <function name="oo:getTocTitle" as="xs:string">
+  <!-- oo:getTocFullTitle returns the full title of tocElement -->
+  <function name="oo:getTocFullTitle" as="xs:string">
     <param name="tocElement0" as="element()"/>
 
     <variable name="tocElement" as="element()">
@@ -752,20 +740,20 @@
 
     <variable name="tocTitleEXPLICIT"
         select="if ($tocElement/@n)
-          then replace($tocElement/@n, '^(\[[^\]]*\])+', '')
+          then $tocElement/@n
           else ''"/>
 
     <variable name="tocTitleOSIS">
       <choose>
         <!-- milestone TOC -->
         <when test="$tocElement0/self::milestone[@type=concat('x-usfm-toc', $TOC)]">
-          <value-of select="replace($tocElement/@n, '^(\[[^\]]*\])+', '')"/>
+          <value-of select="$tocElement/@n"/>
         </when>
         <!-- chapter TOC -->
         <when test="$tocElement/self::chapter[@sID]">
-          <variable name="chapterLabel" select="$tocElement/following::title
-                                                [@type='x-chapterLabel'][1]
-                                                [following::chapter[1][@eID=$tocElement/@sID]]"/>
+          <variable name="chapterLabel" select="
+            $tocElement/following::title[@type='x-chapterLabel'][1]
+            [following::chapter[1][@eID=$tocElement/@sID]]"/>
           <choose>
             <when test="$chapterLabel">
               <value-of select="string($chapterLabel)"/>
@@ -774,7 +762,8 @@
           </choose>
         </when>
         <when test="$tocElement/self::seg[@type='keyword']">
-          <value-of select="$tocElement"/>
+        <!-- TODO: Improve this by removing potential title part of @n: -->
+          <value-of select="concat($tocElement/@n, string($tocElement))"/>
         </when>
         <!-- otherwise error -->
         <otherwise>
@@ -1030,12 +1019,13 @@
       then 'http://www.gribuser.ru/xml/fictionbook/2.0'
       else 'unknown')"/>
     <element name="{local-name()}" namespace="{$ns}">
-      <call-template name="class"/>
-      <apply-templates mode="tran" select="node()|@*"/>
+      <call-template name="classedContent">
+        <with-param name="parentName" select="local-name()"/>
+      </call-template>
     </element>
   </template>
 
-  <!-- Remove these elements entirely (x-chapterLabel is handled by oo:getTocTitle())-->
+  <!-- Remove these elements entirely (x-chapterLabel is handled by oo:getTocFullTitle())-->
   <template mode="tran" match="
     header |
     chapter[@eID] |
@@ -1050,29 +1040,41 @@
     <apply-templates mode="tran"/>
   </template>
 
-  <!-- FB2 sections with title -->
-  <template mode="tran" priority="10" match="div">
+  <!-- FB2 sections with title:
+  @type='fb2:section' was added during FB2 precrocessing.-->
+  <template mode="tran" priority="2" match="div[@type='fb2:section']">
+    <variable name="tocElement" select="
+      descendant-or-self::*[
+        self::chapter[@sID] or
+        self::seg[@type='keyword'] or
+        self::milestone[@type=concat('x-usfm-toc', $TOC)]
+      ][1]"/>
     <choose>
       <when test="$target = 'html'"><next-match/></when>
       <when test="$target = 'fb2'">
-        <choose>
-          <when test="
-            self::*[not($isChildrensBible)][@osisID] |
-            self::*[$isChildrensBible][not(@type='book')][@osisID]">
-            <variable name="title0" select="
-              ./milestone[@type=concat('x-usfm-toc', $TOC)][1]/
-              replace(@n, '^(\[[^\]]*\])+', '')"/>
-            <variable name="title" select="
-              if (not($title0)) then oc:decodeOsisRef(@osisID) else $title0"/>
-            <fb2:section>
-              <fb2:title>
-                <fb2:p><value-of select="$title"/></fb2:p>
-              </fb2:title>
-              <apply-templates mode="tran"/>
-            </fb2:section>
-          </when>
-          <otherwise><apply-templates mode="tran"/></otherwise>
-        </choose>
+        <variable name="content" as="node()*">
+          <apply-templates mode="tran"/>
+        </variable>
+        <fb2:section>
+          <attribute name="id" select="oc:id(@osisID)"/>
+          <fb2:title>
+            <fb2:p>
+              <value-of select="
+                if ($tocElement)
+                then oc:titleCase(oo:getTocFullTitle($tocElement))
+                else ''"/>
+            </fb2:p>
+          </fb2:title>
+          <!-- FB2 schema requires content after the title. -->
+          <choose>
+            <when test="$content[self::element()]">
+              <sequence select="$content"/>
+            </when>
+            <otherwise>
+              <fb2:p><sequence select="$content"/></fb2:p>
+            </otherwise>
+          </choose>
+        </fb2:section>
       </when>
     </choose>
   </template>
@@ -1093,11 +1095,11 @@
 
   <!-- Chapters -->
   <template mode="tran" match="chapter[@sID and @osisID]">
-    <variable name="chapterLabel"
-        select="following::title[@type='x-chapterLabel'][1]
-                [following::chapter[1][@eID=current()/@sID]]" />
+    <variable name="chapterLabel" select="
+      following::title[@type='x-chapterLabel'][1]
+      [following::chapter[1][@eID=current()/@sID]]" />
     <variable name="tocAttributes" select="oo:getTocAttributes(.)"/>
-    <variable name="tocTitle0" select="oo:getTocTitle(.)"/>
+    <variable name="tocTitle0" select="replace(oo:getTocFullTitle(.), '^(\[[^\]]*\])+', '')"/>
     <variable name="tocTitle">
       <choose>
         <when test="$chapterLabel">
@@ -1110,26 +1112,28 @@
         </otherwise>
       </choose>
     </variable>
-    <choose>
-      <when test="$target = 'html'">
-        <html:h1>
-          <sequence select="$tocAttributes"/>
-          <sequence select="$tocTitle"/>
-        </html:h1>
-        <!-- non-Bible chapters also get inline TOC (Bible trees do not have a document-node due to preprocessing) -->
-        <if test="
-          not(tokenize($tocAttributes/self::attribute(class), ' ') = 'no_toc')
-          and oc:docWork(.) != $MAINMOD">
+    <if test="$target = 'html'">
+      <html:h1>
+        <sequence select="$tocAttributes"/>
+        <sequence select="$tocTitle"/>
+      </html:h1>
+    </if>
+    <!-- non-Bible chapters also get inline TOC -->
+    <if test="
+        oc:docWork(.) != $MAINMOD and
+        not(tokenize($tocAttributes/self::attribute(class), ' ') = 'no_toc')">
+      <choose>
+        <when test="$target = 'html'">
           <html:h1 class="xsl-nonBibleChapterLabel">
             <value-of select="$tocTitle"/>
           </html:h1>
-          <sequence select="oo:getInlineTOC(.)"/>
-        </if>
-      </when>
-      <when test="$target = 'fb2'">
-        <fb2:title><fb2:p><sequence select="$tocTitle"/></fb2:p></fb2:title>
-      </when>
-    </choose>
+          <sequence select="oo:getElementInlineTOC(.)"/>
+        </when>
+        <when test="$target = 'fb2'">
+          <sequence select="oo:getElementInlineTOC(.)"/>
+        </when>
+      </choose>
+    </if>
   </template>
 
   <!-- Glossary keywords -->
@@ -1149,18 +1153,19 @@
       <when test="$target = 'html'">
         <html:dfn>
           <sequence select="oo:getTocAttributes(.)"/>
-          <value-of select="oo:getTocTitle(.)"/>
+          <value-of select="replace(oo:getTocFullTitle(.), '^(\[[^\]]*\])+', '')"/>
         </html:dfn>
       </when>
       <when test="$target = 'fb2'">
-        <fb2:title>
-          <sequence select="oo:getTocAttributes(.)"/>
-          <fb2:p><value-of select="oo:getTocTitle(.)"/></fb2:p>
-        </fb2:title>
+        <fb2:strong>
+          <value-of select="replace(oo:getTocFullTitle(.), '^(\[[^\]]*\])+', '')"/>
+        </fb2:strong>
       </when>
     </choose>
   </template>
-  <template mode="tran" match="div[starts-with(@type,'x-keyword')]">
+
+<!-- Glossary entries -->
+  <template mode="tran" priority="3" match="div[starts-with(@type,'x-keyword')]">
     <choose>
       <when test="$target = 'html'">
         <!-- Add an ebook page-break if there is more than one keyword in the glossary.
@@ -1174,9 +1179,7 @@
           <apply-templates mode="tran"/>
         </html:div>
       </when>
-      <when test="$target = 'fb2'">
-        <next-match/>
-      </when>
+      <when test="$target = 'fb2'"><apply-templates mode="tran"/></when>
     </choose>
   </template>
 
@@ -1186,7 +1189,7 @@
       <when test="$target = 'html'">
         <element name="h{if (@level) then @level else '1'}" namespace="http://www.w3.org/1999/xhtml">
           <if test="@osisID"><attribute name="id" select="oc:id(@osisID)"/></if>
-          <call-template name="class"/>
+          <call-template name="classes"/>
           <if test="@canonical='true'">
             <call-template name="WriteEmbededChapter"/>
             <call-template name="WriteEmbededVerse"/>
@@ -1196,13 +1199,10 @@
       </when>
       <when test="$target = 'fb2'">
         <fb2:subtitle>
-          <fb2:p>
-            <if test="@canonical='true'">
-              <call-template name="WriteEmbededChapter"/>
-              <call-template name="WriteEmbededVerse"/>
-            </if>
-            <apply-templates mode="tran"/>
-          </fb2:p>
+          <if test="@canonical='true'">
+            <call-template name="WriteEmbededVerse"/>
+          </if>
+          <apply-templates mode="tran"/>
         </fb2:subtitle>
       </when>
     </choose>
@@ -1213,14 +1213,14 @@
     <choose>
       <when test="$target = 'html'">
         <html:h2>
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent"/>
         </html:h2>
       </when>
       <when test="$target = 'fb2'">
         <fb2:subtitle>
-          <call-template name="class"/>
-          <fb2:p><apply-templates mode="tran"/></fb2:p>
+          <call-template name="classedContent">
+            <with-param name="parentName" select="'subtitle'"/>
+          </call-template>
         </fb2:subtitle>
       </when>
     </choose>
@@ -1236,12 +1236,11 @@
     <choose>
       <when test="$target = 'html'">
          <html:span>
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent"/>
         </html:span>
       </when>
       <when test="$target = 'fb2'">
-        <apply-templates mode="tran"/>
+        <call-template name="classedContent"/>
       </when>
     </choose>
   </template>
@@ -1250,14 +1249,14 @@
     <choose>
       <when test="$target = 'html'">
         <html:td>
-        <call-template name="class"/>
-        <apply-templates mode="tran"/>
+        <call-template name="classedContent"/>
       </html:td>
     </when>
       <when test="$target = 'fb2'">
         <fb2:td>
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent">
+            <with-param name="parentName" select="'td'"/>
+          </call-template>
         </fb2:td>
       </when>
     </choose>
@@ -1268,24 +1267,24 @@
       <when test="$target = 'html'">
         <element name="{if ($html5 = 'true') then 'figcaption' else 'div'}"
             namespace="http://www.w3.org/1999/xhtml">
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent"/>
         </element>
       </when>
       <when test="$target = 'fb2'">
         <fb2:subtitle>
-          <call-template name="class"/>
-          <fb2:p><apply-templates mode="tran"/></fb2:p>
+          <call-template name="classedContent">
+            <with-param name="parentName" select="'subtitle'"/>
+          </call-template>
         </fb2:subtitle>
       </when>
     </choose>
   </template>
 
-  <template mode="tran" priority="1" match="div[@type='introduction']">
+  <template mode="tran" priority="4" match="div[@type='introduction']">
     <next-match/>
     <choose>
       <when test="$target = 'html'"><html:hr/></when>
-      <when test="$target = 'fb2'"><fb2:empty-line/></when>
+      <!-- TODO: FB2 schema limits these: <when test="$target = 'fb2'"><fb2:empty-line/></when>-->
     </choose>
   </template>
 
@@ -1295,7 +1294,7 @@
       <when test="$target = 'html'">
         <element name="{if ($html5 = 'true') then 'figure' else 'div'}"
             namespace="http://www.w3.org/1999/xhtml">
-          <call-template name="class"/>
+          <call-template name="classes"/>
           <html:img src="{oc:uriToRelativePath(concat('/html/', $contextFile), @src)}" alt="{@src}"/>
           <apply-templates mode="tran"/>
         </element>
@@ -1311,14 +1310,14 @@
     <choose>
       <when test="$target = 'html'">
         <html:h2>
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent"/>
         </html:h2>
       </when>
       <when test="$target = 'fb2'">
         <fb2:subtitle>
-          <call-template name="class"/>
-          <fb2:p><apply-templates mode="tran"/></fb2:p>
+          <call-template name="classedContent">
+            <with-param name="parentName" select="'subtitle'"/>
+          </call-template>
         </fb2:subtitle>
       </when>
     </choose>
@@ -1329,24 +1328,23 @@
   </template>
 
   <template mode="tran" match="item">
+    <variable name="content" as="node()*">
+      <if test="$target != 'fb2'">
+        <call-template name="WriteEmbededChapter"/>
+      </if>
+      <call-template name="WriteEmbededVerse"/>
+      <apply-templates mode="tran"/>
+    </variable>
     <choose>
       <when test="$target = 'html'">
         <html:li>
-          <call-template name="class"/>
-          <call-template name="WriteEmbededChapter"/>
-          <call-template name="WriteEmbededVerse"/>
-          <apply-templates mode="tran"/>
+          <sequence select="oo:getClassedContent(., 'li', $content, '')"/>
         </html:li>
       </when>
       <when test="$target = 'fb2'">
-        <fb2:tr>
-          <call-template name="class"/>
+        <fb2:tr align="left">
           <fb2:td>
-            <fb2:p>
-              <call-template name="WriteEmbededChapter"/>
-              <call-template name="WriteEmbededVerse"/>
-              <apply-templates mode="tran"/>
-            </fb2:p>
+            <sequence select="oo:getClassedContent(., 'td', $content, '')"/>
           </fb2:td>
         </fb2:tr>
       </when>
@@ -1356,18 +1354,18 @@
   <template mode="tran" match="lb[@type = 'x-hr']">
     <choose>
       <when test="$target = 'html'">
-        <html:hr><call-template name="class"/></html:hr>
+        <html:hr><call-template name="classes"/></html:hr>
       </when>
-      <when test="$target = 'fb2'"><fb2:empty-line/></when>
+      <!-- FB2 schema limits these: <when test="$target = 'fb2'"><fb2:empty-line/></when>-->
     </choose>
   </template>
 
   <template mode="tran" match="lb">
     <choose>
       <when test="$target = 'html'">
-        <html:br><call-template name="class"/></html:br>
+        <html:br><call-template name="classes"/></html:br>
       </when>
-      <when test="$target = 'fb2'"><fb2:empty-line/></when>
+      <!-- FB2 schema limits these: <when test="$target = 'fb2'"><fb2:empty-line/></when>-->
     </choose>
   </template>
 
@@ -1376,19 +1374,23 @@
   selah is: "A character style. This text is frequently right aligned, and rendered
   on the same line as the previous poetic text..." !-->
   <template mode="tran" match="l">
+    <variable name="content" as="node()*">
+       <if test="$target != 'fb2'">
+        <call-template name="WriteEmbededChapter"/>
+      </if>
+      <call-template name="WriteEmbededVerse"/>
+      <apply-templates mode="tran"/>
+    </variable>
     <choose>
       <when test="$target = 'html'">
         <choose>
-          <!-- Consecutive selah l elements are all output together within the
-          preceding div. Selah must not be the first line in a linegroup, or it
-          will be ignored. -->
           <when test="@type = 'selah'"/>
           <when test="following-sibling::l[1][@type='selah']">
-            <html:div>
-              <call-template name="class"/>
-              <call-template name="WriteEmbededChapter"/>
-              <call-template name="WriteEmbededVerse"/>
-              <apply-templates mode="tran"/>
+            <!-- Consecutive selah l elements are all output together within the
+            preceding div. Selah must not be the first line in a linegroup, or it
+            will be ignored. -->
+            <variable name="content2">
+              <sequence select="$content"/>
               <html:i class="xsl-selah">
                 <for-each select="following-sibling::l[@type='selah']
                     [ count(preceding-sibling::l[@type='selah'][. &#62;&#62; current()]) =
@@ -1397,24 +1399,21 @@
                   <apply-templates mode="tran"/>
                 </for-each>
               </html:i>
+            </variable>
+            <html:div>
+              <sequence select="oo:getClassedContent(., 'div', $content2, '')"/>
             </html:div>
           </when>
           <otherwise>
             <html:div>
-              <call-template name="class"/>
-              <call-template name="WriteEmbededChapter"/>
-              <call-template name="WriteEmbededVerse"/>
-              <apply-templates mode="tran"/>
+              <sequence select="oo:getClassedContent(., 'div', $content, '')"/>
             </html:div>
           </otherwise>
         </choose>
       </when>
       <when test="$target = 'fb2'">
         <fb2:v>
-          <call-template name="class"/>
-          <call-template name="WriteEmbededChapter"/>
-          <call-template name="WriteEmbededVerse"/>
-          <apply-templates mode="tran"/>
+          <sequence select="oo:getClassedContent(., 'v', $content, '')"/>
         </fb2:v>
       </when>
     </choose>
@@ -1424,14 +1423,14 @@
     <choose>
       <when test="$target = 'html'">
         <html:div>
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent"/>
         </html:div>
       </when>
       <when test="$target = 'fb2'">
         <fb2:poem>
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <fb2:stanza>
+            <apply-templates mode="tran"/>
+          </fb2:stanza>
         </fb2:poem>
       </when>
     </choose>
@@ -1443,8 +1442,7 @@
       <when test="$target = 'html'">
         <variable name="ol" as="element(html:ol)">
           <html:ol >
-            <call-template name="class"/>
-            <apply-templates mode="tran"/>
+            <call-template name="classedContent"/>
           </html:ol>
         </variable>
         <!-- OSIS allows list to contain head and lb children, but EPUB2 validator
@@ -1460,8 +1458,9 @@
         </for-each>
       </when>
       <when test="$target = 'fb2'">
+        <variable name="class" select="oc:getClasses(.)"/>
         <fb2:table>
-          <call-template name="class"/>
+          <if test="$class"><attribute name="style" select="$class"/></if>
           <apply-templates mode="tran"/>
         </fb2:table>
       </when>
@@ -1477,44 +1476,55 @@
     <param name="preprocessedRefOSIS" tunnel="yes"/>
     <param name="currentTask" tunnel="yes"/>
 
+    <variable name="tocTitle" select="oc:titleCase(oo:getTocFullTitle(.))"/>
+
     <!-- [inline_toc_last] writes the inline TOC just before the
     following TOC milestone, even if the following is [no_toc] -->
     <for-each select="preceding::milestone[@type=concat('x-usfm-toc', $TOC)][1]
                       [contains(@n, '[inline_toc_last]')]">
-      <sequence select="oo:getInlineTOC(.)"/>
+      <sequence select="oo:getElementInlineTOC(.)"/>
     </for-each>
 
     <variable name="tocAttributes" select="oo:getTocAttributes(.)"/>
 
     <if test="not(tokenize($tocAttributes/self::attribute(class), ' ') = 'no_toc')">
-      <variable name="tocTitle" select="oc:titleCase(oo:getTocTitle(.))"/>
-      <variable name="inlineTOC" as="element()*" select="oo:getInlineTOC(.)"/>
+      <!-- If this is the first milestone in a Bible, then first write the main
+      TOC. But FB2 creates its own main inline TOC, so it's not needed for FB2. -->
+      <variable name="mainInlineTOC" select="
+        if (@isMainTocMilestone = 'true' and $target != 'fb2')
+        then oc:getMainInlineTOC(root(.), $combinedGlossary, $preprocessedRefOSIS)
+        else ()"/>
+      <variable name="inlineTOC" as="element()*" select="oo:getElementInlineTOC(.)"/>
       <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS
       implementations should have this text de-emphasized since it is not part of the orignal book -->
-      <choose>
-        <when test="$target = 'html'">
-          <html:div>
-            <sequence select="$tocAttributes"/>
-            <html:small><html:i><value-of select="$tocTitle"/></html:i></html:small>
-          </html:div>
-        </when>
-      </choose>
-      <!-- if there is an inlineTOC with this milestone TOC, then write out a title -->
-      <if test="@isMainTocMilestone = 'true' or $inlineTOC">
+      <if test="$target = 'html'">
+        <html:div>
+          <sequence select="$tocAttributes"/>
+          <html:small>
+            <html:i><value-of select="replace($tocTitle, '^(\[[^\]]*\])+', '')"/></html:i>
+          </html:small>
+        </html:div>
+      </if>
+      <!-- If there is a mainInlineTOC or inlineTOC with this milestone TOC,
+      then write out a visible title. -->
+      <if test="$mainInlineTOC or $inlineTOC">
         <choose>
           <when test="$target = 'html'">
-            <html:h1><value-of select="$tocTitle"/></html:h1>
+            <html:h1><value-of select="replace($tocTitle, '^(\[[^\]]*\])+', '')"/></html:h1>
+          </when>
+          <when test="$target = 'fb2'">
+            <fb2:subtitle>
+              <value-of select="replace($tocTitle, '^(\[[^\]]*\])+', '')"/>
+            </fb2:subtitle>
           </when>
         </choose>
       </if>
-      <!-- if this is the first milestone in a Bible, then include the root TOC -->
-      <if test="@isMainTocMilestone = 'true'">
-        <sequence select="oc:getMainInlineTOC(root(.), $combinedGlossary, $preprocessedRefOSIS)"/>
-      </if>
-      <!-- if a glossary disambiguation title is needed, then write that out -->
-      <!-- TODO: DO THIS ALSO FOR FB2? THEN TITLE MUST BE INSIDE NEXT SECTION! -->
+      <if test="$mainInlineTOC"><sequence select="$mainInlineTOC"/></if>
+      <!-- If a glossary disambiguation title is needed, then write that out. -->
+
+      <!-- TODO: For FB2, the glossary divs have been removed, so another test needs to be made here. -->
+
       <if test="
-          $target = 'html' and
           not($doCombineGlossaries) and
           oo:getTocLevel(.) = 1 and
           count(distinct-values(
@@ -1527,7 +1537,7 @@
         </variable>
         <apply-templates mode="tran" select="$kdh"/>
       </if>
-      <!-- output the inline TOC -->
+      <!-- finally output the inline TOC -->
       <if test="not(contains(@n, '[inline_toc_last]'))">
         <sequence select="$inlineTOC"/>
       </if>
@@ -1549,14 +1559,14 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     <choose>
       <when test="$target = 'html'">
         <html:p>
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent"/>
         </html:p>
       </when>
       <when test="$target = 'fb2'">
         <fb2:p>
-          <!-- <call-template name="class"/> -->
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent">
+            <with-param name="parentName" select="'p'"/>
+          </call-template>
         </fb2:p>
       </when>
     </choose>
@@ -1570,36 +1580,37 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
             <if test="$epub3Markup">
               <attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'noteref'"/>
             </if>
-            <call-template name="getFootnoteSymbol">
-              <with-param name="classes" select="oc:getClasses(.)"/>
-            </call-template>
+            <call-template name="getFootnoteSymbol"/>
           </html:a>
         </html:sup>
       </when>
       <when test="$target = 'fb2'">
-        <fb2:sup>
-          <fb2:a xlink:href="#{oc:id(@osisID)}" id="textsym.{oc:id(@osisID)}" type="note">
-            <fb2:span>
-              <call-template name="getFootnoteSymbol">
-                <with-param name="classes" select="oc:getClasses(.)"/>
-              </call-template>
-            </fb2:span>
-          </fb2:a>
-        </fb2:sup>
+        <fb2:a xlink:href="#{oc:id(@osisID)}" type="note">
+          <fb2:sup>
+            <call-template name="getFootnoteSymbol">
+            <!-- Use 'a' as parentName so class will not be written -->
+              <with-param name="parentName" select="'a'"/>
+            </call-template>
+          </fb2:sup>
+        </fb2:a>
       </when>
     </choose>
   </template>
 
   <template mode="tran" match="p">
     <param name="currentTask" tunnel="yes"/>
+    <variable name="content" as="node()*">
+      <if test="$target != 'fb2'">
+        <call-template name="WriteEmbededChapter"/>
+      </if>
+      <call-template name="WriteEmbededVerse"/>
+      <apply-templates mode="tran"/>
+    </variable>
     <choose>
       <when test="$target = 'html'">
         <variable name="p" as="element(html:p)">
           <html:p>
-            <call-template name="class"/>
-            <call-template name="WriteEmbededChapter"/>
-            <call-template name="WriteEmbededVerse"/>
-            <apply-templates mode="tran"/>
+            <sequence select="oo:getClassedContent(., 'p', $content, '')"/>
           </html:p>
         </variable>
         <!-- Block elements as descendants of p do not validate epub, so expel those.
@@ -1611,10 +1622,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       </when>
       <when test="$target = 'fb2'">
         <fb2:p>
-          <!-- class attribute on p fails validation: <call-template name="class"/> -->
-          <call-template name="WriteEmbededChapter"/>
-          <call-template name="WriteEmbededVerse"/>
-          <apply-templates mode="tran"/>
+          <sequence select="oo:getClassedContent(., 'p', $content, '')"/>
         </fb2:p>
       </when>
     </choose>
@@ -1632,16 +1640,10 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
             <variable name="href" select="oc:uriToRelativePath(
                 concat('/html/', $contextFile),
                 concat('/html/', $file, '#fullResourceURL'))"/>
-            <html:a href="{$href}">
-              <call-template name="class"/>
-              <apply-templates mode="tran"/>
-            </html:a>
+            <html:a href="{$href}"><call-template name="classedContent"/></html:a>
           </when>
           <otherwise>
-            <html:span>
-              <call-template name="class"/>
-              <apply-templates mode="tran"/>
-            </html:span>
+            <html:span><call-template name="classedContent"/></html:span>
           </otherwise>
         </choose>
       </when>
@@ -1649,10 +1651,9 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         <choose>
           <when test="$FullResourceURL and $FullResourceURL != 'false'">
             <fb2:a xlink:href="#fullResourceURL">
-              <fb2:span>
-                <call-template name="class"/>
-                <apply-templates mode="tran"/>
-              </fb2:span>
+              <call-template name="classedContent">
+                <with-param name="parentName" select="'a'"/>
+              </call-template>
             </fb2:a>
           </when>
           <otherwise>
@@ -1671,8 +1672,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         <variable name="href"
           select="oc:uriToRelativePath(concat('/html/', $contextFile), @href)"/>
         <html:a href="{$href}">
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent"/>
         </html:a>
       </when>
       <when test="$target = 'fb2'">
@@ -1773,10 +1773,9 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       </when>
       <when test="$target = 'fb2'">
         <fb2:a xlink:href="{$fragment}">
-          <fb2:span>
-            <call-template name="class"/>
-            <apply-templates mode="tran"/>
-          </fb2:span>
+          <call-template name="classedContent">
+            <with-param name="parentName" select="'a'"/>
+          </call-template>
         </fb2:a>
       </when>
       <otherwise>
@@ -1785,8 +1784,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
                       concat('/html/', $contextFile),
                       concat('/html/', $file, $fragment))"/>
         <html:a href="{$href}">
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent"/>
         </html:a>
       </otherwise>
     </choose>
@@ -1796,13 +1794,11 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     <choose>
       <when test="$target = 'html'">
         <html:tr>
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent"/>
         </html:tr>
       </when>
       <when test="$target = 'fb2'">
-        <fb2:tr>
-          <call-template name="class"/>
+        <fb2:tr align="left">
           <apply-templates mode="tran"/>
         </fb2:tr>
       </when>
@@ -1813,15 +1809,17 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     <choose>
       <when test="$target = 'html'">
         <html:span>
-          <call-template name="class"/>
-          <apply-templates mode="tran"/>
+          <call-template name="classedContent"/>
         </html:span>
       </when>
       <when test="$target = 'fb2'">
-        <apply-templates mode="tran"/>
+        <call-template name="classedContent"/>
       </when>
     </choose>
   </template>
+
+  <!-- TODO: Is this needed? Do we want to support all osisIDs as link targets? -->
+  <template mode="tran" match="seg[@type='x-osisID']"/>
 
   <!-- #################################################################### -->
   <!--                     POSTPROCESS OUTPUT                               -->
@@ -1855,8 +1853,11 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       <apply-templates mode="preprocess" select="/"/>
     </variable>
     <choose>
-      <when test="$target = 'fb2'"><sequence select="$preprocess"/></when>
-      <when test="$eachChapterIsFile or $isChildrensBible or $isGenericBook">
+      <when test="
+        $target = 'fb2' or
+        $eachChapterIsFile or
+        $isChildrensBible or
+        $isGenericBook">
         <variable name="removeSectionDivs">
           <apply-templates mode="preprocess_removeSectionDivs" select="$preprocess"/>
         </variable>
@@ -1955,32 +1956,65 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
 
   <!-- This template may be called from any element. It adds a class attribute
   according to tag, level, type, subType, role and class -->
-  <template name="class"><attribute name="class" select="oc:getClasses(.)"/></template>
+  <template name="classes">
+    <choose>
+      <when test="$target = 'html'">
+        <attribute name="class" select="oc:getClasses(.)"/>
+      </when>
+      <when test="$target = 'fb2'">
+        <call-template name="Error">
+          <with-param name="msg">Cannot call template 'classes' with FB2.</with-param>
+          <with-param name="die">yes</with-param>
+        </call-template>
+      </when>
+    </choose>
+  </template>
+
+  <template name="classedContent">
+    <param name="parentName" select="''" as="xs:string"/>
+
+    <variable name="content" as="node()*">
+      <apply-templates mode="#current"/>
+    </variable>
+
+    <sequence select="oo:getClassedContent(., $parentName, $content, '')"/>
+  </template>
 
   <!-- This template may be called from any note. It returns a symbol or
   number based on that note's type and context -->
   <template name="getFootnoteSymbol">
-    <param name="classes" select="''"/>
+    <param name="class" select="''"/>
+    <param name="parentName" select="''"/>
 
-    <variable name="inChapter" select="preceding::chapter[1]/@sID = following::chapter[1]/@eID or
-                                       preceding::chapter[1]/@sID = descendant::chapter[1]/@eID or
-                                       boolean(ancestor::title[@canonical='true'])"/>
+    <variable name="inChapter" select="
+      preceding::chapter[1]/@sID = following::chapter[1]/@eID or
+      preceding::chapter[1]/@sID = descendant::chapter[1]/@eID or
+      boolean(ancestor::title[@canonical='true'])"/>
     <choose>
       <when test="$inChapter and not(@type='crossReference')">
-        <attribute name="class" select="normalize-space(string-join(($classes, 'xsl-fnote-symbol'), ' '))"/>
-        <value-of select="'*'"/>
+        <variable name="ec" select="
+          normalize-space(string-join(($class, 'xsl-fnote-symbol'), ' '))"/>
+        <sequence select="oo:getClassedContent(., $parentName, '*', $ec)"/>
       </when>
       <when test="$inChapter and @subType='x-parallel-passage'">
-        <attribute name="class" select="normalize-space(string-join(($classes, 'xsl-crnote-symbol'), ' '))"/>
-        <value-of select="'•'"/>
+        <variable name="ec" select="
+          normalize-space(string-join(($class, 'xsl-crnote-symbol'), ' '))"/>
+        <sequence select="oo:getClassedContent(., $parentName, '•', $ec)"/>
       </when>
       <when test="$inChapter">
-        <attribute name="class" select="normalize-space(string-join(($classes, 'xsl-crnote-symbol'), ' '))"/>
-        <value-of select="'+'"/>
+        <variable name="ec" select="
+          normalize-space(string-join(($class, 'xsl-crnote-symbol'), ' '))"/>
+        <sequence select="oo:getClassedContent(., $parentName, '+', $ec)"/>
       </when>
       <otherwise>
-        <attribute name="class" select="normalize-space(string-join(($classes, 'xsl-note-number'), ' '))"/>
-        <value-of select="'['"/><call-template name="getFootnoteNumber"/><value-of select="']'"/>
+        <variable name="noteSymbol">
+          <value-of select="'['"/>
+            <call-template name="getFootnoteNumber"/>
+          <value-of select="']'"/>
+        </variable>
+        <variable name="ec" select="
+          normalize-space(string-join(($class, 'xsl-note-number'), ' '))"/>
+        <sequence select="oo:getClassedContent(., $parentName, $noteSymbol, $ec)"/>
       </otherwise>
     </choose>
   </template>
@@ -2028,9 +2062,9 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
           <html:span class="xsl-chapter-number"><value-of select="$ch"/></html:span>
         </when>
         <when test="$target = 'fb2'">
-          <fb2:title class="xsl-chapter-number">
-            <fb2:p><value-of select="$ch"/></fb2:p>
-          </fb2:title>
+          <fb2:subtitle class="xsl-chapter-number">
+            <value-of select="$ch"/>
+          </fb2:subtitle>
         </when>
       </choose>
     </if>
@@ -2085,7 +2119,18 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         <html:sup class="xsl-verse-number"><value-of select="$v"/></html:sup>
       </when>
       <when test="$target = 'fb2'">
-        <fb2:sup class="xsl-verse-number"><value-of select="$v"/></fb2:sup>
+        <!-- TODO: Come up with a strategy to handle links from Scripture
+        references to verses, when only these FB2 elements may have ids:
+          image
+          p
+          poem
+          cite
+          epigraph
+          annotation
+          section
+          table
+          td -->
+        <fb2:sup><value-of select="$v"/></fb2:sup>
       </when>
     </choose>
   </template>
@@ -2106,9 +2151,65 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       )"/>
   </function>
 
+  <function name="oo:getClassedContent">
+    <param name="context" as="element()"/>
+    <param name="parentName" as="xs:string"/>
+    <param name="content"/>
+    <param name="extraClasses" as="xs:string"/>
+
+    <variable name="class" select="
+      normalize-space(string-join(($extraClasses, oc:getClasses($context)), ' '))"/>
+
+    <choose>
+      <when test="$target = 'html'">
+        <if test="$class">
+          <attribute name="class" select="$class"/>
+        </if>
+        <sequence select="$content"/>
+      </when>
+      <when test="$target = 'fb2'">
+        <choose>
+          <when test="$class">
+            <choose>
+              <when test="$parentName = ('a')">
+                <call-template name="Warn"><with-param name="msg">The FB2 schema disallows styling of this element: '<value-of select="$parentName"/>'.</with-param></call-template>
+                <sequence select="$content"/>
+              </when>
+              <when test="matches($parentName, '^(p|v|subtitle|text\-author)$')">
+                <attribute name="style" select="$class"/>
+                <sequence select="$content"/>
+              </when>
+              <otherwise>
+                <fb2:style>
+                  <attribute name="name" select="$class"/>
+                  <sequence select="$content"/>
+                </fb2:style>
+              </otherwise>
+            </choose>
+          </when>
+          <otherwise>
+            <sequence select="$content"/>
+          </otherwise>
+        </choose>
+      </when>
+    </choose>
+  </function>
+
+  <function name="oo:getFileName" as="xs:string">
+    <param name="node" as="node()"/>
+    <choose>
+      <when test="$target = 'html'">
+        <sequence select="oo:getFileNameHTML($node)"/>
+      </when>
+      <otherwise>
+        <value-of select="''"/>
+      </otherwise>
+    </choose>
+  </function>
+
   <!-- This function may be called on any node. It returns the output
   file that contains the node -->
-  <function name="oo:getFileName" as="xs:string">
+  <function name="oo:getFileNameHTML" as="xs:string">
     <param name="node1" as="node()"/>
 
     <variable name="node" as="node()"

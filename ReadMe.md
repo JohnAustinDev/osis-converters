@@ -101,10 +101,10 @@ INSTRUCTION | DESCRIPTION
 **[not_parent]** | Force the children of a TOC entry to follow the parent by inheriting its TOC level.
 **[no_inline_toc]** | Remove a TOC entry from the inline TOC. This could result in broken link errors for non-eBook publications.
 **[only_inline_toc]** | Remove a TOC entry from the detached TOC.
-**[no_main_inline_toc]** | Remove a TOC entry from the main inline TOC. The main inline TOC appears on the beginning of an ePublication and serves as the overall TOC for the entire publication. The TOC entry may still appear in subsequent inline TOC segments.
-**[inline_toc_first]** | Place the inline TOC segment right after the TOC entry. This only applies to DICTMOD, where by default inline TOC segments are placed just before the following TOC entry.
-**[inline_toc_last]** | Place the inline TOC segment before the following TOC entry. This only applies to MAINMOD, where by default inline TOC segments are placed right after the TOC entry. NOTE: the inline TOC will be placed before the following child TOC entry even when it is marked as `[no_toc]`. So a `[no_toc]` child entry can be used as a placeholder for the previous inline TOC segment.
-**[bookSubGroup]** | The TOC entry corresponds to a Bible book sub-group introduction; useful for distinguishing it from the book-group introduction.
+**[no_main_inline_toc]** | Remove a TOC entry from the main inline TOC. The main inline TOC appears at the beginning of an ePublication and serves as the overall TOC for the entire publication. The TOC entry may still appear in subsequent inline TOC segments.
+**[inline_toc_first]** | Place the inline TOC segment right after their TOC entry. This only applies to DICTMOD, where by default inline TOC segments are placed just before their TOC entry.
+**[inline_toc_last]** | Place the inline TOC segment just before their TOC entry. This only applies to MAINMOD, where by default inline TOC segments are placed right after their TOC entry. NOTE: the inline TOC will be placed before the its TOC entry even if that entry is marked as `[no_toc]`. So a `[no_toc]` entry can be used as a placeholder for an inline TOC segment.
+**[bookSubGroup]** | The TOC entry corresponds to a Bible book sub-group introduction; useful for distinguishing it from the main book-group introduction.
 
 
 ### SFM ID DIRECTIVES 

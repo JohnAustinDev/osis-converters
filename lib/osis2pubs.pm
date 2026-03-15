@@ -621,7 +621,7 @@ of this material to exclude it from HTML publications.");
     &makeEbook($tmp, 'azw3', $cover, $scope, $pubName, $pubSubdir);
   }
   if ($convertTo eq "ebooks" && $createTypes =~ /fb2/i) {
-    #&makeEbook($tmp, 'fb2', $cover, $scope, $pubName, $pubSubdir);
+    &makeEbook($tmp, 'fb2', $cover, $scope, $pubName, $pubSubdir);
   }
 }
 
