@@ -436,23 +436,6 @@
                $topElement/@type,
                $topElement/@subType)
               ), ' '))"/>
-          <!-- If our main OSIS file doesn't have a main TOC milestone, insert
-          the main inline TOC. -->
-          <if test="not($mainTocMilestone) and $isMainNode and
-                    $OSISelement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]]"
-              xmlns="http://www.w3.org/1999/XSL/Transform">
-            <variable name="pubname" select="//work[child::type[@type='x-bible']][1]/title[1]"/>
-            <variable name="title" as="element()+">
-              <osis:milestone type="{concat('x-usfm-toc', $TOC)}" n="{$pubname}"/>
-              <osis:title type="main"><value-of select="$pubname"/></osis:title>
-            </variable>
-            <apply-templates mode="tran" select="$title"/>
-            <sequence select="oc:getMainInlineTOC(
-              root($OSISelement),
-              $combinedGlossary,
-              $preprocessedMainOSIS,
-              $preprocessedRefOSIS)"/>
-          </if>
           <!-- the following div is needed because non-block children <body> cause eBook validation to fail -->
           <div><xsl:sequence select="$fileXHTML"/></div>
           <xsl:sequence select="$fileNotes"/>

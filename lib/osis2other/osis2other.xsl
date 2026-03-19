@@ -75,7 +75,7 @@
       then false() else $CombineGlossaries = 'true' "/>
 
   <variable name="CombindedGlossaryTitle" select="
-    //work[boolean($DICTMOD) and @osisWork = $DICTMOD]/title[1]"/>
+      //work[boolean($DICTMOD) and @osisWork = $DICTMOD]/title[1]"/>
 
   <!-- USFM file types output by CrossWire's usfm2osis.py -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance',
@@ -85,13 +85,13 @@
       'x-chronology', 'x-weightsandMeasures', 'x-mapIndex', 'x-ntQuotesfromLXX',
       'coverPage', 'x-spine', 'x-tables', 'x-dailyVerses')" as="xs:string+"/>
 
+  <variable name="REF_BibleTop" select="concat($MAINMOD,':BIBLE_TOP')"/>
+  <variable name="REF_DictTop" select="if ($DICTMOD) then concat($DICTMOD,':DICT_TOP') else ''"/>
+
   <!-- A main inline Table Of Contents is placed after the first TOC milestone. -->
   <variable name="mainTocMilestone" select="
       /descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
       [not(oo:getTocInstructions(.) = 'no_toc')][1]"/>
-
-  <variable name="REF_BibleTop" select="concat($MAINMOD,':BIBLE_TOP')"/>
-  <variable name="REF_DictTop" select="if ($DICTMOD) then concat($DICTMOD,':DICT_TOP') else ''"/>
 
   <!-- #################################################################### -->
   <!--                        TABLE OF CONTENTS                             -->
@@ -129,15 +129,13 @@
 
   see &help('TABLE OF CONTENTS') for INSTRUCTIONS doc -->
   <function name="oc:getMainInlineTOC" as="element()*">
-    <param name="mainRootNode" as="document-node()"/>
     <param name="preprocessedMainOSIS" as="document-node()"/>
     <param name="preprocessedRefOSIS" as="document-node()"/>
     <param name="combinedGlossary" as="document-node()"/>
 
     <variable name="listElementDoc">
       <sequence select="oo:getTocListItems(
-          $mainRootNode,
-          true(),
+          $preprocessedMainOSIS,
           $preprocessedMainOSIS,
           $preprocessedRefOSIS,
           $combinedGlossary)"/>
@@ -146,7 +144,6 @@
       <if test="$doCombineGlossaries">
         <sequence select="oo:getTocListItems(
             $combinedGlossary,
-            true(),
             $preprocessedMainOSIS,
             $preprocessedRefOSIS,
             $combinedGlossary)"/>
@@ -155,7 +152,6 @@
       combiningGlossaries) or else everything in reference OSIS -->
       <sequence select="oo:getTocListItems(
           $preprocessedRefOSIS,
-          true(),
           $preprocessedMainOSIS,
           $preprocessedRefOSIS,
           $combinedGlossary)"/>
@@ -189,7 +185,6 @@
             $preprocessedRefOSIS,
             $combinedGlossary
           ),
-          false(),
           $preprocessedMainOSIS,
           $preprocessedRefOSIS,
           $combinedGlossary
@@ -254,18 +249,26 @@
                   is full-width, then all back links become full-table
                   width. When there are an odd number of half-table
                   width back links, the last link is centered by itself. -->
-    <variable name="fullWidthElements" select="$listdoc/html:li[oo:isFullWidth(., $isTopTOC)]"/>
-    <variable name="halfWidthElements" select="$listdoc/html:li[not(. intersect $fullWidthElements)]"/>
-    <variable name="chars" select="if ($isTopTOC) then
-                                       max(($halfWidthElements/(2*string-length(string())),
-                                            $fullWidthElements/string-length(string())
-                                       )) else
-                                       max($listdoc/html:li/string-length(string()))"/>
-    <variable name="wChars" select="if ($chars &#62; $tocWidth) then $tocWidth else $chars"/>
+    <variable name="fullWidthElements" select="
+        $listdoc/html:li[oo:isFullWidth(., $isTopTOC)]"/>
+    <variable name="halfWidthElements" select="
+        $listdoc/html:li[not(. intersect $fullWidthElements)]"/>
+    <variable name="chars" select="
+        if ($isTopTOC)
+        then max(
+            (
+              $halfWidthElements/(2*string-length(string())),
+              $fullWidthElements/string-length(string())
+            )
+          )
+        else max($listdoc/html:li/string-length(string()))"/>
+    <variable name="wChars" select="
+        if ($chars &#62; $tocWidth) then $tocWidth else $chars"/>
 
     <html:div>
       <attribute name="class">xsl-inline-toc</attribute>
-      <!-- this div allows margin auto to center, which doesn't work with ul/ol -->
+      <!-- this div allows margin auto to center, which doesn't work with
+      ul/ol -->
       <html:div>
         <choose>
           <!-- main TOC is fixed width and children are specified as % in css -->
@@ -273,25 +276,45 @@
             <!-- The main TOC is fixed width and child li are specified as % in css. To fit the text:
             width = 6px + $averageCharWidth*(4+wChars/2) ch + 12px + $averageCharWidth*(4+wChars/2) ch + 6px
             or: max-width of parent at 100% = 24px + $averageCharWidth*(8+wChars) ch + 1ch for chapter inline block fudge -->
-            <variable name="ch" select="floor(0.5 + 10*$averageCharWidth*(8+$wChars)) div 10"/>
-            <attribute name="style" select="concat('max-width:calc(24px + ', $ch+1, 'ch)')"/>
+            <variable name="ch" select="
+                floor(0.5 + 10*$averageCharWidth*(8+$wChars)) div 10"/>
+            <attribute name="style" select="
+                concat('max-width:calc(24px + ', $ch+1, 'ch)')"/>
           </when>
           <!-- book TOCs are max 3 columns -->
-          <when test="$listdoc/html:li[tokenize(@class,'\s+') = 'xsl-book-link']">
-            <attribute name="style" select="concat('max-width:', ceiling(3.5*$averageCharWidth*(4+$wChars)), 'ch')"/>
+          <when test="
+              $listdoc/html:li[tokenize(@class,'\s+') = 'xsl-book-link']">
+            <attribute name="style" select="
+                concat(
+                  'max-width:',
+                  ceiling(3.5*$averageCharWidth*(4+$wChars)),
+                  'ch'
+                )"/>
           </when>
         </choose>
-        <for-each-group select="$listdoc/html:li" group-adjacent="oo:section(., $isTopTOC)">
+        <for-each-group select="$listdoc/html:li"
+            group-adjacent="oo:section(., $isTopTOC)">
           <variable name="sectionIsFullWidth" as="xs:boolean"
             select="oo:isFullWidth(current-group()[1], $isTopTOC)"/>
           <variable name="maxWCharsSection" as="xs:double"
-            select="if ($sectionIsFullWidth) then $tocWidth else $tocWidth div 2"/>
+              select="
+              if ($sectionIsFullWidth)
+              then $tocWidth
+              else $tocWidth div 2"/>
           <variable name="charsSection" as="xs:double"
-              select="max(current-group()[not(tokenize(@class, '\s+') = 'xsl-atoz')]/string-length(string()))"/>
+              select="
+              max(
+                current-group()[not(tokenize(@class, '\s+') = 'xsl-atoz')]/
+                string-length(string())
+              )"/>
           <variable name="wCharsSection" as="xs:double"
-              select="if ($charsSection &#62; $maxWCharsSection) then $maxWCharsSection else $charsSection"/>
+              select="
+              if ($charsSection &#62; $maxWCharsSection)
+              then $maxWCharsSection
+              else $charsSection"/>
           <variable name="ch_section" as="xs:double"
-              select="floor(0.5 + 10 * $averageCharWidth * (4 + $wCharsSection)) div 10"/>
+              select="
+              floor(0.5 + 10 * $averageCharWidth * (4 + $wCharsSection)) div 10"/>
           <html:ol>
             <attribute name="class">
               <variable name="class" as="xs:string+">
@@ -299,7 +322,9 @@
                 <if test="$sectionIsFullWidth">
                   <value-of select="'xsl-full-width'"/>
                 </if>
-                <if test="count(current-group()[tokenize(@class,'\s+') = 'xsl-book-link']) mod 2 = 1">
+                <if test="count(
+                      current-group()[tokenize(@class,'\s+') = 'xsl-book-link']
+                    ) mod 2 = 1">
                   <value-of select="'xsl-odd-books'"/>
                 </if>
                 <if test="count(current-group()) mod 2 = 1">
@@ -316,15 +341,20 @@
                 <copy-of select="@*"/>
                 <attribute name="style">
                   <variable name="style" as="xs:string*">
-                    <variable name="Hem" as="xs:double"
-                      select="1 + ceiling( if ($isTopTOC and oo:isFullWidth(., $isTopTOC))
-                                           then string-length(string()) div $wCharsSection
-                                           else $charsSection div $wCharsSection )"/>
-                    <value-of select="concat('min-height:calc(', $Hem, 'em + 3px)')"/>
+                    <variable name="Hem" as="xs:double" select="
+                        1 + ceiling(
+                            if ($isTopTOC and oo:isFullWidth(., $isTopTOC))
+                            then string-length(string()) div $wCharsSection
+                            else $charsSection div $wCharsSection
+                          )"/>
+                    <value-of select="
+                        concat('min-height:calc(', $Hem, 'em + 3px)')"/>
                     <!-- Width is not specified for top-TOC at the li level because it is specified
                     at a higher div level. The A-to-Z button width is not specified because it
                     is allowed to be wider than all other button links in its list. -->
-                    <if test="not($isTopTOC) and not(tokenize(@class, '\s+') = 'xsl-atoz')">
+                    <if test="
+                        not($isTopTOC) and
+                        not(tokenize(@class, '\s+') = 'xsl-atoz')">
                       <value-of select="concat('width:', $ch_section, 'ch')"/>
                     </if>
                   </variable>
@@ -341,10 +371,14 @@
   <function name="oo:section" as="xs:string">
     <param name="elem" as="element()"/>
     <param name="isTopTOC" as="xs:boolean"/>
-    <value-of select="if (not($isTopTOC)) then concat(tokenize($elem/@class,'\s+')[1], '-section')
-                      else if (contains($elem/@class,'xsl-book')) then 'xsl-scrip'
-                      else if ($elem/following::*[contains(@class,'xsl-book')]) then 'xsl-intro'
-                      else 'xsl-back'"/>
+    <value-of select="
+        if (not($isTopTOC))
+        then concat(tokenize($elem/@class,'\s+')[1], '-section')
+        else if (contains($elem/@class,'xsl-book'))
+        then 'xsl-scrip'
+        else if ($elem/following::*[contains(@class,'xsl-book')])
+        then 'xsl-intro'
+        else 'xsl-back'"/>
   </function>
   <function name="oo:isFullWidth" as="xs:boolean">
     <param name="elem" as="element()"/>
@@ -355,8 +389,10 @@
                                    [oo:section(., $isTopTOC) = $section]"/>
     <variable name="scripElems" select="$elem/parent::node()/child::node()
                                    [oo:section(., $isTopTOC) = 'xsl-scrip']"/>
-    <variable name="fullWidthChars" select="if ($section = 'xsl-intro')
-                                            then $introFullWidth else $backFullWidth"/>
+    <variable name="fullWidthChars" select="
+        if ($section = 'xsl-intro')
+        then $introFullWidth
+        else $backFullWidth"/>
     <choose>
       <when test="not($isTopTOC)">
         <value-of select="true()"/>
@@ -365,36 +401,46 @@
         <value-of select="count($siblings) &#60;= 5"/>
       </when>
       <otherwise>
-        <value-of select="max($siblings/string-length(string())) &#62;= $fullWidthChars or
-                          (count($siblings) = 1 and count($scripElems) &#60;= 5)"/>
+        <value-of select="
+            (max($siblings/string-length(string())) &#62;= $fullWidthChars) or
+            (count($siblings) = 1 and count($scripElems) &#60;= 5)"/>
       </otherwise>
     </choose>
   </function>
 
-  <!-- Returns a series of list entry elements, one for every TOC entry that is a
-  step below tocNode in the hierarchy. A class is added according to the type of
-  entry. EBook glossary keyword lists with greater than $glossaryTocAutoThresh
-  entries are pared down to list only the first of each letter. -->
+  <!-- Returns a series of list entry elements, one for every TOC entry that is
+  a step below tocNode in the hierarchy. A class is added according to the type
+  of entry. EBook glossary keyword lists with greater than
+  $glossaryTocAutoThresh entries are pared down to list only the first of each
+  letter. IMPORTANT: tocNode MUST be the document-node of, or an element
+  within, the preprocessedMainOSIS, preprocessedRefOSIS or combinedGlossary.-->
   <function name="oo:getTocListItems" as="element()*">
-    <param name="tocNode" as="node()"/><!-- original preprocessed osis node -->
-    <param name="isTopTOC" as="xs:boolean"/>
+    <param name="tocNode" as="node()"/><!-- tocElement or document-node -->
     <param name="preprocessedMainOSIS"/>
     <param name="preprocessedRefOSIS"/>
     <param name="combinedGlossary"/>
 
+    <variable name="isTopTOC" select="$tocNode[self::document-node()]"/>
     <variable name="docWork" select="oc:docWork($tocNode)"/>
     <variable name="isMainNode" select="$docWork = $MAINMOD"/>
     <variable name="isDictNode" select="$docWork = $DICTMOD"/>
-    <variable name="myTocLevel" as="xs:integer"
-        select="if ($isTopTOC) then 0 else oo:getTocLevel($tocNode)"/>
-    <variable name="sourceDir" select="concat(
-        '/html/',
-        if ($isTopTOC) then oo:getFileName($mainTocMilestone) else oo:getFileName($tocNode)
-      )"/>
+    <variable name="myTocLevel" as="xs:integer" select="
+        if ($isTopTOC)
+        then 0
+        else oo:getTocLevel($tocNode)"/>
+    <variable name="sourceDir" select="
+        concat(
+          '/html/',
+          if ($isTopTOC)
+            then oo:getFileName($mainTocMilestone)
+            else oo:getFileName($tocNode)
+        )"/>
 
     <if test="
         $myTocLevel &#60; 3 and
-        not(oo:getTocInstructions($tocNode) = ('not_parent', 'no_inline_toc'))">
+        not(
+          oo:getTocInstructions($tocNode) = ('not_parent', 'no_inline_toc')
+        )">
       <variable name="subentries" as="element()*">
         <choose>
           <!-- Generic Books including Children's Bibles -->
@@ -416,36 +462,52 @@
           </when>
           <!-- chapter start tag -->
           <when test="$tocNode/self::chapter[@sID]">
-            <sequence select="( $tocNode/following::seg[@type='keyword'] |
-                                $tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)]
-                              )[not(oo:getTocInstructions(.) = 'no_toc')] except
-                $tocNode/following::chapter[@eID][@eID = $tocNode/@sID]/following::*"/>
+            <sequence select="
+                ( $tocNode/following::seg[@type='keyword'] |
+                  $tocNode/following::milestone
+                    [@type=concat('x-usfm-toc', $TOC)]
+                )[not(oo:getTocInstructions(.) = 'no_toc')]
+                except $tocNode/following::chapter[@eID]
+                  [@eID = $tocNode/@sID]/following::*
+              "/>
           </when>
           <!-- otherwise use toclevel for this TOC element -->
           <otherwise>
-            <variable name="followingTocCandidates"
-                select="( root($tocNode)//chapter[@sID] |
-                          root($tocNode)//seg[@type='keyword'] |
-                          root($tocNode)//milestone[@type=concat('x-usfm-toc', $TOC)]
-                        )[. &#62;&#62; $tocNode]
-                         [not($isTopTOC and @isMainTocMilestone = 'true')]
-                         [not($isTopTOC and self::*[contains(@n, '[no_main_inline_toc]')])]
-                         [not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
-                         [not(oo:getTocInstructions(.) = ('no_toc'))]"/>
-            <variable name="nextTocSP" select="if ($isTopTOC) then () else
-                $tocNode/following::*[. intersect $followingTocCandidates]
-                                     [oo:getTocLevel(.) &#60;= $myTocLevel][1]"/>
-            <sequence select="$followingTocCandidates[oo:getTocLevel(.) = $myTocLevel + 1]
-                                            [not($nextTocSP) or not(. intersect $nextTocSP)]
-                                            [not($nextTocSP) or not(. &#62;&#62; $nextTocSP)]"/>
+            <variable name="followingTocCandidates" select="
+                ( root($tocNode)//chapter[@sID] |
+                  root($tocNode)//seg[@type='keyword'] |
+                  root($tocNode)//milestone[@type=concat('x-usfm-toc', $TOC)]
+                )[. &#62;&#62; $tocNode]
+                  [not($isTopTOC and @isMainTocMilestone = 'true')]
+                  [not(
+                    $isTopTOC and self::*[contains(@n, '[no_main_inline_toc]')]
+                  )]
+                  [not(
+                    ancestor::div[@type='glossary'][@subType='x-aggregate']
+                  )]
+                  [not(oo:getTocInstructions(.) = 'no_toc')]"/>
+            <variable name="nextTocSP" select="
+                if ($isTopTOC)
+                then ()
+                else $tocNode/following::*[. intersect $followingTocCandidates]
+                  [oo:getTocLevel(.) &#60;= $myTocLevel][1]"/>
+            <sequence select="
+                $followingTocCandidates[oo:getTocLevel(.) = $myTocLevel + 1]
+                [not($nextTocSP) or not(. intersect $nextTocSP)]
+                [not($nextTocSP) or not(. &#62;&#62; $nextTocSP)]"/>
           </otherwise>
         </choose>
       </variable>
-      <variable name="onlyKeywordFirstLetter" as="xs:boolean"
-        select="not($isMainNode) and
-                ($SCRIPT_NAME = 'osis2ebooks') and
-                (count($subentries[@type='keyword']) &#62;= xs:integer(number($glossaryTocAutoThresh))) and
-                (count(distinct-values($subentries[@type='keyword']/oc:keySortLetter(text()))) &#62; 1)"/>
+      <variable name="onlyKeywordFirstLetter" as="xs:boolean" select="
+          not($isMainNode) and
+          ($SCRIPT_NAME = 'osis2ebooks') and
+          (
+            count($subentries[@type='keyword']) &#62;=
+            xs:integer(number($glossaryTocAutoThresh))
+          ) and
+          count(distinct-values(
+            $subentries[@type='keyword']/oc:keySortLetter(text())
+          )) &#62; 1"/>
       <for-each select="$subentries">
         <if test="not( $onlyKeywordFirstLetter and
                        boolean(self::seg[@type='keyword']) and
@@ -454,21 +516,36 @@
           <variable name="liClass" as="xs:string+">
             <variable name="class" as="xs:string+">
               <choose>
-                <when test="self::chapter"> xsl-chapter-link </when>
-                <when test="self::seg"> xsl-keyword-link </when>
-                <when test="$isChildrensBible and $isTopTOC and count(
-                            preceding::milestone[contains(@n,'[level1]')]
-                            [@type=concat('x-usfm-toc', $TOC)]) = (2,3)"> xsl-bookGroup-link </when>
-                <when test="$isChildrensBible and $isTopTOC"> xsl-other-link </when>
-                <when test="$isDictNode and oo:isGlossaryTOC(.)"> xsl-glossary-link</when>
-                <when test="oo:isBookIntroTOC(.)"> xsl-book-introduction-link </when>
-                <when test="oo:isBookTOC(.)"> xsl-book-link </when>
-                <when test="oo:isBookSubGroupTOC(.)"> xsl-bookSubGroup-link </when>
-                <when test="oo:isBookGroupTOC(.)"> xsl-bookGroup-link </when>
-                <otherwise> xsl-other-link </otherwise>
+                <when test="self::chapter"
+                > xsl-chapter-link </when>
+                <when test="self::seg"
+                > xsl-keyword-link </when>
+                <when test="
+                    $isChildrensBible and
+                    $isTopTOC and
+                    count(
+                      preceding::milestone[contains(@n,'[level1]')]
+                      [@type=concat('x-usfm-toc', $TOC)]
+                    ) = (2,3)"
+                > xsl-bookGroup-link </when>
+                <when test="$isChildrensBible and $isTopTOC"
+                > xsl-other-link </when>
+                <when test="$isDictNode and oo:isGlossaryTOC(.)"
+                > xsl-glossary-link</when>
+                <when test="oo:isBookIntroTOC(.)"
+                > xsl-book-introduction-link </when>
+                <when test="oo:isBookTOC(.)"
+                > xsl-book-link </when>
+                <when test="oo:isBookSubGroupTOC(.)"
+                > xsl-bookSubGroup-link </when>
+                <when test="oo:isBookGroupTOC(.)"
+                > xsl-bookGroup-link </when>
+                <otherwise
+                > xsl-other-link </otherwise>
               </choose>
               <value-of select="oc:getTocInstructions(.)"/>
-              <if test="ancestor::div[@subType='x-navmenu-all-keywords']"> xsl-atoz </if>
+              <if test="ancestor::div[@subType='x-navmenu-all-keywords']"
+              > xsl-atoz </if>
             </variable>
             <value-of select="normalize-space(string-join($class, ' '))"/>
           </variable>
@@ -484,24 +561,40 @@
               <when test="self::chapter[@osisID]">
                 <value-of select="tokenize(@osisID, '\.')[last()]"/>
               </when>
-              <when test="ancestor::div[@type='x-keyword'][@subType = 'x-navmenu-all-keywords']">
+              <when test="
+                  ancestor::div[@type='x-keyword']
+                  [@subType = 'x-navmenu-all-keywords']">
                 <value-of select="concat(
-                  oc:keySortLetter(ancestor::div[@type='x-keyword']/descendant::reference[1]/string()),
-                  '-',
-                  oc:keySortLetter(ancestor::div[@type='x-keyword']/descendant::reference[last()]/string()))"/>
+                    oc:keySortLetter(
+                        ancestor::div[@type='x-keyword']/
+                        descendant::reference[1]/string()
+                      ),
+                    '-',
+                    oc:keySortLetter(
+                        ancestor::div[@type='x-keyword']/
+                        descendant::reference[last()]/string()
+                      )
+                  )"/>
               </when>
-              <when test="ancestor::div[@type='x-keyword'][@subType = 'x-navmenu-letter']">
+              <when test="
+                  ancestor::div[@type='x-keyword']
+                  [@subType = 'x-navmenu-letter']">
                 <value-of select="
-                  oc:keySortLetter(ancestor::div[@type='x-keyword']/descendant::seg[@type='keyword'][1]/string())"/>
+                  oc:keySortLetter(
+                    ancestor::div[@type='x-keyword']/
+                    descendant::seg[@type='keyword'][1]/string()
+                  )"/>
               </when>
-              <when test="$onlyKeywordFirstLetter and self::seg[@type='keyword']">
+              <when test="
+                  $onlyKeywordFirstLetter and
+                  self::seg[@type='keyword']">
                 <value-of select="oc:keySortLetter(text())"/>
               </when>
-              <when test="matches(text(), '^\-')"><value-of select="text()"/></when>
+              <when test="matches(text(), '^\-')">
+                <value-of select="text()"/>
+              </when>
               <otherwise>
-                <value-of select="oc:titleCase(oo:getTocTitle(oo:origElement(
-                    ., $preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary
-                  )))"/>
+                <value-of select="oc:titleCase(oo:getTocTitle(.))"/>
               </otherwise>
             </choose>
           </variable>
@@ -509,7 +602,7 @@
             <when test="$target = 'html'">
               <html:li>
                 <attribute name="class" select="$liClass"/>
-                <!-- two divs are needed to center vertically using table-style centering -->
+                <!-- two divs are needed to center vertically -->
                 <html:div>
                   <html:div>
                     <html:a>
@@ -687,7 +780,8 @@
   <!-- getTocLevel returns an integer which is the TOC hierarchy level
   of the tocElement; where 1 is the hightest possible level and 3 is the
   lowest (deeper levels will throw an ERROR as they are not supported by
-  eBook readers). -->
+  eBook readers). IMPORTANT: the tocElement MUST be either the
+  oo:origElement(.) or have an explicit TOC level (ie. [level2]). -->
   <function name="oo:getTocLevel" as="xs:integer">
     <param name="tocElement" as="element()"/>
 
@@ -721,6 +815,8 @@
   </function>
 
   <!-- oo:getTocInstructions returns all TOC instructions of a TOC element.
+  IMPORTANT: the tocElement MUST be either the oo:origElement(.) or have
+  an explicit TOC level (ie. [level2]).
   These are TOC elements:
     milestone[@type=concat('x-usfm-toc', $TOC)]
     chapter[@sID]
@@ -746,8 +842,9 @@
     </if>
   </function>
 
-  <!-- oo:getTocClasses returns all classes associated with TOC element,
-  which includes any TOC instructions.
+  <!-- oo:getTocClasses returns all classes associated with a TOC element,
+  which includes any TOC instructions. IMPORTANT: the tocElement MUST be either
+  the oo:origElement(.) or have an explicit TOC level (ie. [level2]).
   These are TOC elements:
     milestone[@type=concat('x-usfm-toc', $TOC)]
     chapter[@sID]
@@ -767,6 +864,8 @@
 
   <!-- oo:getTocAttributes returns attributes for transformed TOC
   elements. The title attribute is used Calibre for building the TOC.
+  IMPORTANT: the tocElement MUST be either the oo:origElement(.)
+  or have an explicit TOC level (ie. [level2]).
   These are TOC elements:
     milestone[@type=concat('x-usfm-toc', $TOC)]
     chapter[@sID]
@@ -895,6 +994,16 @@
                   preprocess_glossTocMenus
                   preprocess_addGroupAttribs" match="node()|@*">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
+  </template>
+
+  <template mode="preprocess" match="osis">
+    <if test="not($mainTocMilestone)">
+      <call-template name="Error">
+<with-param name="msg">No main TOC milestone was found.</with-param>
+<with-param name="exp">Add a TOC tag at the beginning of the main document.</with-param>
+      </call-template>
+    </if>
+    <next-match/>
   </template>
 
   <!-- preprocess
@@ -1311,13 +1420,14 @@
   <template mode="tran" priority="3" match="div[starts-with(@type,'x-keyword')]">
     <param name="preprocessedRefOSIS" tunnel="yes"/>
     <variable name="disambigHeading" as="node()*">
-      <if test="not(ancestor-or-self::div[@resp='x-oc']) and
-                not($doCombineGlossaries) and
-                oo:getTocLevel(.//seg[@type='keyword'][1]) = 1 and
-                count(distinct-values(
-                  $preprocessedRefOSIS//div[@type='glossary']/
-                  oc:getDivScopeTitle(.)
-                )) &#62; 1">
+      <if test="
+          not(ancestor-or-self::div[@resp='x-oc']) and
+          not($doCombineGlossaries) and
+          oo:getTocLevel(.//seg[@type='keyword'][1]) = 1 and
+          count(distinct-values(
+            $preprocessedRefOSIS//div[@type='glossary']/
+            oc:getDivScopeTitle(.)
+          )) &#62; 1">
         <variable name="heading" as="node()*">
           <call-template name="keywordDisambiguationHeading"/>
         </variable>
@@ -1694,10 +1804,9 @@
         <variable name="mainInlineTOC" select="
           if (@isMainTocMilestone = 'true' and $target != 'fb2')
           then oc:getMainInlineTOC(
-              root(.),
-              $combinedGlossary,
               $preprocessedMainOSIS,
-              $preprocessedRefOSIS
+              $preprocessedRefOSIS,
+              $combinedGlossary
             )
           else ()"/>
         <variable name="inlineTOC" as="element()*" select="oo:getElementInlineTOC(
@@ -2050,8 +2159,8 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </choose>
   </template>
 
-  <!-- During FB2 preprocessing these divs were emptied and left as holding 
-  places for osisIDs. Now they are transformed into fb2 elements until 
+  <!-- During FB2 preprocessing these divs were emptied and left as holding
+  places for osisIDs. Now they are transformed into fb2 elements until
   their final use and removal during FB2 postprocessing. -->
   <template mode="tran" priority="5" match="div[@emptied]">
     <if test="@osisID">

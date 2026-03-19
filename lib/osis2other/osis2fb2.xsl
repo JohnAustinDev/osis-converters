@@ -79,7 +79,7 @@
       <apply-templates mode="sectionsFB2" select="$removeDivs"/>
     </variable>
 
-    <!-- write debug OSIS file snapshot just before transformation -->
+    <!-- write debug OSIS file snapshot just before transformation
     <result-document href="preprocessedOSIS.xml">
       <for-each select="(
             $preprocessedMainOSIS_FB2,
@@ -88,7 +88,7 @@
           )">
         <apply-templates mode="whitespace.xsl" select="."/>
       </for-each>
-    </result-document>
+    </result-document> -->
 
     <!-- transform OSIS to FB2 -->
     <variable name="fb2">
@@ -292,10 +292,10 @@
       if (self::div[starts-with(@type, 'x-keyword')])
       then .//seg[@type='keyword'][1]
       else ."/>
-    <variable name="classes" select="oo:getTocClasses($tocElement)"/>
+    <variable name="instructions" select="oo:getTocInstructions($tocElement)"/>
     <variable name="level" select="oo:getTocLevel($tocElement)"/>
     <choose>
-      <when test="$classes = ('no_toc', 'only_inline_toc')">
+      <when test="$instructions = ('no_toc', 'only_inline_toc')">
         <next-match/>
       </when>
       <otherwise>
@@ -411,17 +411,17 @@ Also notes appear in the TOC which makes it far too large!
           <!-- Since section id comes from the first contained toc element,
           and since a section which has section children will reference the
           same toc element as its first section child, the id of the parent
-          must get '.parent' appended to make it unique. -->
+          must get 'parent.' prepended to make it unique. -->
           <variable name="isParent" select="
             current-group()[@sectionLevelFB2 = $level + 1]"/>
           <variable name="descOsisID" select="
               current()/descendant-or-self::*[@osisID][1]/@osisID"/>
           <variable name="osisID" select="
             concat(
+              if ($isParent) then 'parent.' else '',
               if ($descOsisID)
                 then $descOsisID
-                else concat('unknown', generate-id(current())),
-              if ($isParent) then '.parent' else ''
+                else concat('unknown.', generate-id(current()))
             )"/>
           <choose>
             <when test="
