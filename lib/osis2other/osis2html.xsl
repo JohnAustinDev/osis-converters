@@ -401,8 +401,8 @@
     <param name="fileXHTML" as="node()+"/>
     <param name="fileNotes" as="node()*"/>
     <param name="preprocessedMainOSIS" tunnel="yes"/>
-    <param name="combinedGlossary" tunnel="yes"/>
     <param name="preprocessedRefOSIS" tunnel="yes"/>
+    <param name="combinedGlossary" tunnel="yes"/>
 
     <variable name="topElement" select="$OSISelement/parent::*" as="element()"/>
     <variable name="isMainNode" select="oc:docWork($topElement) = $MAINMOD"/>
@@ -447,7 +447,11 @@
               <osis:title type="main"><value-of select="$pubname"/></osis:title>
             </variable>
             <apply-templates mode="tran" select="$title"/>
-            <sequence select="oc:getMainInlineTOC(root($OSISelement), $combinedGlossary, $preprocessedRefOSIS)"/>
+            <sequence select="oc:getMainInlineTOC(
+              root($OSISelement),
+              $combinedGlossary,
+              $preprocessedMainOSIS,
+              $preprocessedRefOSIS)"/>
           </if>
           <!-- the following div is needed because non-block children <body> cause eBook validation to fail -->
           <div><xsl:sequence select="$fileXHTML"/></div>
