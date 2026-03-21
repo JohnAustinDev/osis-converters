@@ -79,7 +79,7 @@
       <apply-templates mode="sectionsFB2" select="$removeDivs"/>
     </variable>
 
-    <!-- write debug OSIS file snapshot just before transformation
+    <!-- write debug OSIS file snapshot just before transformation -->
     <result-document href="preprocessedOSIS.xml">
       <for-each select="(
             $preprocessedMainOSIS_FB2,
@@ -88,7 +88,7 @@
           )">
         <apply-templates mode="whitespace.xsl" select="."/>
       </for-each>
-    </result-document> -->
+    </result-document>
 
     <!-- transform OSIS to FB2 -->
     <variable name="fb2">
@@ -189,41 +189,68 @@
         </for-each>
       </fb2:body>
 
-      <if test="$inputOSIS//note">
+      <if test="$inputOSIS//(note | div[starts-with(@type, 'x-keyword')])">
         <fb2:body name="notes">
           <fb2:title>
-            <fb2:p id="{concat('p.1.', generate-id(.))}">Footnotes</fb2:p>
+            <fb2:p id="{concat('p.1.', generate-id(.))}">Notes</fb2:p>
           </fb2:title>
+          <!-- glossary keywords as notes (included also in TOC) -->
+          <for-each select="$inputOSIS//div[starts-with(@type, 'x-keyword')]">
+            <variable name="osisID" select="
+                descendant::seg[@type='keyword'][1]/@osisID"/>
+            <variable name="content" as="node()*">
+              <apply-templates mode="tran" select="*[not(
+                self::title[
+                  @subType=('x-glossary-scope', 'x-glossary-title')
+                ])]"/>
+            </variable>
+            <variable name="section">
+              <fb2:section id="{oc:id($osisID)}.note">
+                <sequence select="oo:fb2SectionContent($content)"/>
+              </fb2:section>
+            </variable>
+            <!-- Remove duplicate ids from FB2 node copies or else validation
+            will fail. Saxon-b optimizes out all copy methods intended to make
+            generate-id produce unique ids (copy-of, tmp element, etc.) so
+            apply-templates removeIDs is used. -->
+            <if test="$content">
+              <apply-templates mode="removeIDs" select="$section"/>
+            </if>
+          </for-each>
+          <!-- regular notes -->
           <for-each select="$inputOSIS//note">
             <variable name="content" as="node()*">
-              <apply-templates mode="tran"/>
+              <fb2:p>
+                <fb2:strong>
+                  <call-template name="getFootnoteSymbol">
+                    <with-param name="parentName" select="'x'"/>
+                  </call-template>
+                </fb2:strong>
+                <text> </text>
+                <apply-templates mode="tran"/>
+              </fb2:p>
             </variable>
             <if test="$content">
               <fb2:section id="{oc:id(@osisID)}">
-                <fb2:title>
-                  <fb2:p id="{concat('p.2.', generate-id(.))}">
-                    <call-template name="getFootnoteSymbol">
-                      <with-param name="parentName" select="'p'"/>
-                    </call-template>
-                  </fb2:p>
-                </fb2:title>
                 <sequence select="oo:fb2SectionContent($content)"/>
               </fb2:section>
             </if>
           </for-each>
+          <!-- FullResourceURL note -->
           <if test="
             $FullResourceURL and
             $FullResourceURL != 'false' and
             boolean($inputOSIS//reference[@subType='x-other-resource'])">
             <fb2:section id="fullResourceURL">
-              <fb2:title>
-                <fb2:p>
+              <fb2:p>
+                <fb2:strong>
                   <sequence select="oo:getClassedContent(
-                      (), 'p', '+', 'xsl-note-head xsl-crnote-symbol'
-                    )"/>
-                </fb2:p>
-              </fb2:title>
-              <fb2:p><value-of select="$FullResourceURL"/></fb2:p>
+                        (), 'x', '+', 'xsl-note-head xsl-crnote-symbol'
+                      )"/>
+                </fb2:strong>
+                <text> </text>
+                <value-of select="$FullResourceURL"/>
+              </fb2:p>
             </fb2:section>
           </if>
         </fb2:body>
@@ -243,6 +270,11 @@
     </element>
   </template>
 
+  <template mode="removeIDs" match="node()|@*">
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
+  </template>
+  <template mode="removeIDs" match="@id[not(parent::fb2:section)]"/>
+
   <!-- An fb2:section parent must be body or section, and its siblings must
   also be section elements. OSIS chapter, keyword and TOC milestone elements
   will all be transformed into fb2:section elements. So this preprocess step
@@ -256,7 +288,7 @@
   documents. Then successively group children by tocElement level 1, 2 then 3
   where each group leader is either a TOC element or child[1]. NOTE: child[1]
   always leads the first group and so the first TOC element of the main doc-
-  ument must come before the first text node.
+  ument must come first (before the first text node) or an error is thrown.
   IMPORTANT: In the FB2 standard, the detached TOC is determined entirely by
   the fb2:section elements, whereas the inline TOC is still just a collection
   of links.
@@ -346,7 +378,8 @@
 
   <!-- Only the certain FB2 elements may have ids (image, p, v, poem, cite,
   epigraph, annotation, section, table and td). Therefore links targetting
-  verses and osisIDs must be mapped to an element having an id. -->
+  verses and osisIDs must be re-targetted to one of these elements with an
+  id. -->
   <template mode="postprocessFB2" match="@xlink:href">
     <variable name="id" select="substring(., 2)"/>
     <variable name="linkTarget" select="key('id', $id) | key('osisID', $id)"/>
@@ -378,8 +411,9 @@
     </choose>
   </template>
 
-<!-- TODO: Large FB2 will not load due to the number of notes!
-Also notes appear in the TOC which makes it far too large!
+<!-- TODO: Large FB2 will not load in Calibre due to the number of notes. But
+does load in Android FBReader. In Calibre, notes appear in the TOC which makes
+it far too large!
   <template mode="postprocessFB2" match="fb2:a[contains(@xlink:href, 'crossReference.r')]"/>
   <template mode="postprocessFB2" match="fb2:section[contains(@id, 'crossReference.r')]"/>
 -->

@@ -311,10 +311,10 @@
     <param name="preprocessedMainOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
 
-    <!-- A currentTask param is necessary because identical template
-    selectors are required for multiple modes (ie. a single template
-    element should handle multiple modes), yet template content must
-    also vary by mode (something XSLT 2.0 modes alone can't do) -->
+    <!-- A currentTask param is necessary because identical template match sets
+    are required for multiple modes (ie. a single template element must have
+    multiple modes), yet the template content must also be adjusted according
+    mode (something XSLT 2.0 modes alone can't do). -->
     <param name="currentTask" tunnel="yes"/>
 
     <if test="boolean($fileNodes/descendant::text()[normalize-space()] |

@@ -983,7 +983,7 @@
   <template mode="chapterLabel" match="note"/>
 
   <!-- #################################################################### -->
-  <!--                 PREPROCESS THE MAIN OSIS FILE                        -->
+  <!--                 PRE-PROCESS THE MAIN OSIS FILE                        -->
   <!-- #################################################################### -->
 
   <!-- OSIS pre-processing templates greatly speed up processing that
@@ -1903,8 +1903,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         <fb2:a xlink:href="#{oc:id(@osisID)}" type="note">
           <fb2:sup>
             <call-template name="getFootnoteSymbol">
-            <!-- Use 'a' as parentName so class will not be written -->
-              <with-param name="parentName" select="'a'"/>
+              <with-param name="parentName" select="'x'"/>
             </call-template>
           </fb2:sup>
         </fb2:a>
@@ -1985,7 +1984,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
           <when test="$FullResourceURL and $FullResourceURL != 'false'">
             <fb2:a xlink:href="#fullResourceURL">
               <call-template name="classedContent">
-                <with-param name="parentName" select="'a'"/>
+                <with-param name="parentName" select="'x'"/>
               </call-template>
             </fb2:a>
           </when>
@@ -2122,11 +2121,25 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         </html:a>
       </when>
       <when test="$target = 'fb2'">
-        <fb2:a xlink:href="{$fragment}">
-          <call-template name="classedContent">
-            <with-param name="parentName" select="'a'"/>
-          </call-template>
-        </fb2:a>
+        <choose>
+          <when test="@type='x-glossary'">
+            <apply-templates mode="tran"/>
+            <fb2:a xlink:href="{$fragment}.note" type="note">
+              <fb2:sup>
+                <call-template name="getFootnoteSymbol">
+                  <with-param name="parentName" select="'x'"/>
+                </call-template>
+              </fb2:sup>
+            </fb2:a>
+          </when>
+          <otherwise>
+            <fb2:a xlink:href="{$fragment}">
+              <call-template name="classedContent">
+                <with-param name="parentName" select="'x'"/>
+              </call-template>
+            </fb2:a>
+          </otherwise>
+        </choose>
       </when>
     </choose>
   </template>
@@ -2363,6 +2376,11 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       preceding::chapter[1]/@sID = descendant::chapter[1]/@eID or
       boolean(ancestor::title[@canonical='true'])"/>
     <choose>
+      <when test="@type='x-glossary'">
+        <variable name="ec" select="
+          normalize-space(string-join(($class, 'xsl-gloss-symbol'), ' '))"/>
+        <sequence select="oo:getClassedContent(., $parentName, '†', $ec)"/>
+      </when>
       <when test="$inChapter and not(@type='crossReference')">
         <variable name="ec" select="
           normalize-space(string-join(($class, 'xsl-fnote-symbol'), ' '))"/>
@@ -2535,7 +2553,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         <choose>
           <when test="$class">
             <choose>
-              <when test="$parentName = ('a')">
+              <when test="$parentName = ('a', 'x')">
                 <!-- FB2 schema disallows styling of a elements. -->
                 <sequence select="$content"/>
               </when>
