@@ -189,31 +189,34 @@
         </for-each>
       </fb2:body>
 
-      <if test="$inputOSIS//(note | div[starts-with(@type, 'x-keyword')])">
+      <if test="
+          $inputOSIS//note or
+          $inputOSIS//seg[@type='keyword'][@isNote='yes']">
         <fb2:body name="notes">
           <fb2:title>
             <fb2:p id="{concat('p.1.', generate-id(.))}">Notes</fb2:p>
           </fb2:title>
           <!-- glossary keywords as notes (included also in TOC) -->
-          <for-each select="$inputOSIS//div[starts-with(@type, 'x-keyword')]">
-            <variable name="osisID" select="
-                descendant::seg[@type='keyword'][1]/@osisID"/>
+          <for-each select="$inputOSIS//
+              seg[@type='keyword'][@isNote='yes']">
             <variable name="content" as="node()*">
-              <apply-templates mode="tran" select="*[not(
-                self::title[
-                  @subType=('x-glossary-scope', 'x-glossary-title')
-                ])]"/>
-            </variable>
-            <variable name="section">
-              <fb2:section id="{oc:id($osisID)}.note">
-                <sequence select="oo:fb2SectionContent($content)"/>
-              </fb2:section>
+              <apply-templates mode="tran" select="
+                ancestor::div[starts-with(@type, 'x-keyword')][1]/
+                child::node()[not(
+                  self::title[
+                    @subType=('x-glossary-scope', 'x-glossary-title')
+                  ])]"/>
             </variable>
             <!-- Remove duplicate ids from FB2 node copies or else validation
             will fail. Saxon-b optimizes out all copy methods intended to make
             generate-id produce unique ids (copy-of, tmp element, etc.) so
             apply-templates removeIDs is used. -->
             <if test="$content">
+              <variable name="section">
+                <fb2:section id="{oc:id(@osisID)}.note">
+                  <sequence select="oo:fb2SectionContent($content)"/>
+                </fb2:section>
+              </variable>
               <apply-templates mode="removeIDs" select="$section"/>
             </if>
           </for-each>
@@ -227,7 +230,13 @@
                   </call-template>
                 </fb2:strong>
                 <text> </text>
-                <apply-templates mode="tran"/>
+                <!-- notes here cannot contain paragraphs, or FB2 schema is
+                violated and popups won't work right. -->
+                <variable name="removeParagraphs" as="node()*">
+                  <apply-templates mode="tran"/>
+                </variable>
+                <apply-templates mode="removeParagraphs"
+                    select="$removeParagraphs"/>
               </fb2:p>
             </variable>
             <if test="$content">
@@ -270,10 +279,13 @@
     </element>
   </template>
 
-  <template mode="removeIDs" match="node()|@*">
+  <template mode="removeIDs removeParagraphs" match="node()|@*">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   <template mode="removeIDs" match="@id[not(parent::fb2:section)]"/>
+  <template mode="removeParagraphs" match="fb2:p">
+    <apply-templates mode="#current"/>
+  </template>
 
   <!-- An fb2:section parent must be body or section, and its siblings must
   also be section elements. OSIS chapter, keyword and TOC milestone elements
@@ -350,6 +362,11 @@
   <template mode="removeDivsFB2" match="seg[@type='keyword']">
     <copy>
       <attribute name="n" select="me:getN(.)"/>
+      <attribute name="isNote" select="
+          if ( ancestor::div[@type='glossary'][1]
+            [@scope='NAVMENU' or @annotateRef='INT'] )
+          then 'no'
+          else 'yes'"/>
       <apply-templates mode="#current"
         select="node()|@*[local-name() != 'n']"/>
     </copy>

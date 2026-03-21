@@ -2014,9 +2014,9 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   </template>
 
   <template mode="tran" match="reference">
-    <param name="combinedGlossary" tunnel="yes"/>
     <param name="preprocessedMainOSIS" tunnel="yes"/>
     <param name="preprocessedRefOSIS" tunnel="yes"/>
+    <param name="combinedGlossary" tunnel="yes"/>
     <param name="contextFile" select="oo:getFileName(.)" tunnel="yes"/>
 
     <!-- All osisRef attributes should have a workid since preprocessing. -->
@@ -2028,25 +2028,31 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     main-OSIS file osisIDs other than $REF_BibleTop and those containing '!' will fail. -->
     <variable name="isScriptureRef" as="xs:boolean" select="
       @osisRef != $REF_BibleTop and
-      $preprocessedMainOSIS/osis/osisText/header/work[@osisWork = $workid]/type[@type='x-bible'] and
+      $preprocessedMainOSIS/osis/osisText/header/work[@osisWork = $workid]/
+        type[@type='x-bible'] and
       not(contains(@osisRef, '!'))"/>
-    <!-- targetElement is used to find the destination file name, which is
-    unnecessary for FB2 -->
     <variable name="targetElement" as="element()*">
       <choose>
         <when test="
-          $target = 'fb2' or
           $isScriptureRef or
           @osisRef = ($REF_BibleTop, $REF_DictTop)"/>
-        <when test="$workid=$DICTMOD and $doCombineGlossaries">
-          <sequence select="$combinedGlossary/descendant::*[tokenize(@osisID, ' ') = $osisRef]"/>
+        <when test="$workid = $DICTMOD">
+          <sequence select="
+            key('osisID', $osisRef, $preprocessedRefOSIS) |
+            key('osisID', $osisRef, $combinedGlossary)"/>
         </when>
         <otherwise>
-          <sequence select="($preprocessedMainOSIS | $preprocessedRefOSIS)/osis/osisText[@osisRefWork = $workid]/
-                            descendant-or-self::*[tokenize(@osisID, ' ') = $osisRef]"/>
+          <sequence select="key('osisID', $osisRef, $preprocessedMainOSIS)"/>
         </otherwise>
       </choose>
     </variable>
+    <variable name="isNote" select="
+      @type='x-glossary' and
+      $targetElement[self::seg[@type='keyword']]
+        [ ancestor::div[@type='glossary'][1]
+          [not(@scope='NAVMENU')]
+          [not(@annotateRef='INT')]
+        ]"/>
     <variable name="file" as="xs:string?">
       <choose>
         <when test="$target = 'fb2'">fb2</when>
@@ -2122,7 +2128,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       </when>
       <when test="$target = 'fb2'">
         <choose>
-          <when test="@type='x-glossary'">
+          <when test="$isNote">
             <apply-templates mode="tran"/>
             <fb2:a xlink:href="{$fragment}.note" type="note">
               <fb2:sup>
