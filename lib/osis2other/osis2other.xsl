@@ -2019,7 +2019,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     <param name="combinedGlossary" tunnel="yes"/>
     <param name="contextFile" select="oo:getFileName(.)" tunnel="yes"/>
 
-    <!-- All osisRef attributes should have a workid since preprocessing. -->
+    <!-- All osisRef attributes should have a workid from preprocessing. -->
     <variable name="workid" select="tokenize(@osisRef, ':')[1]"/>
     <variable name="osisRef" select="tokenize(@osisRef, ':')[2]"/>
 
@@ -2036,23 +2036,15 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         <when test="
           $isScriptureRef or
           @osisRef = ($REF_BibleTop, $REF_DictTop)"/>
-        <when test="$workid = $DICTMOD">
-          <sequence select="
-            key('osisID', $osisRef, $preprocessedRefOSIS) |
-            key('osisID', $osisRef, $combinedGlossary)"/>
-        </when>
         <otherwise>
-          <sequence select="key('osisID', $osisRef, $preprocessedMainOSIS)"/>
+          <sequence select="
+            oo:targetElement(
+              @osisRef,
+              ($preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary)
+            )"/>
         </otherwise>
       </choose>
     </variable>
-    <variable name="isNote" select="
-      @type='x-glossary' and
-      $targetElement[self::seg[@type='keyword']]
-        [ ancestor::div[@type='glossary'][1]
-          [not(@scope='NAVMENU')]
-          [not(@annotateRef='INT')]
-        ]"/>
     <variable name="file" as="xs:string?">
       <choose>
         <when test="$target = 'fb2'">fb2</when>
@@ -2128,7 +2120,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       </when>
       <when test="$target = 'fb2'">
         <choose>
-          <when test="$isNote">
+          <when test="oo:isGlossaryNote(.)">
             <apply-templates mode="tran"/>
             <fb2:a xlink:href="{$fragment}.note" type="note">
               <fb2:sup>
@@ -2377,27 +2369,23 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     <param name="class" select="''"/>
     <param name="parentName" select="''"/>
 
-    <variable name="inChapter" select="
-      preceding::chapter[1]/@sID = following::chapter[1]/@eID or
-      preceding::chapter[1]/@sID = descendant::chapter[1]/@eID or
-      boolean(ancestor::title[@canonical='true'])"/>
     <choose>
       <when test="@type='x-glossary'">
         <variable name="ec" select="
           normalize-space(string-join(($class, 'xsl-gloss-symbol'), ' '))"/>
         <sequence select="oo:getClassedContent(., $parentName, '†', $ec)"/>
       </when>
-      <when test="$inChapter and not(@type='crossReference')">
+      <when test="oo:inChapter(.) and not(@type='crossReference')">
         <variable name="ec" select="
           normalize-space(string-join(($class, 'xsl-fnote-symbol'), ' '))"/>
         <sequence select="oo:getClassedContent(., $parentName, '*', $ec)"/>
       </when>
-      <when test="$inChapter and @subType='x-parallel-passage'">
+      <when test="oo:inChapter(.) and @subType='x-parallel-passage'">
         <variable name="ec" select="
           normalize-space(string-join(($class, 'xsl-crnote-symbol'), ' '))"/>
         <sequence select="oo:getClassedContent(., $parentName, '•', $ec)"/>
       </when>
-      <when test="$inChapter">
+      <when test="oo:inChapter(.)">
         <variable name="ec" select="
           normalize-space(string-join(($class, 'xsl-crnote-symbol'), ' '))"/>
         <sequence select="oo:getClassedContent(., $parentName, '+', $ec)"/>
@@ -2583,6 +2571,45 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </choose>
   </function>
 
+  <function name="oo:inChapter" as="xs:boolean">
+    <param name="node" as="node()"/>
+    <variable name="workid" select="root($node)/osis/osisText[1]/@osisIDWork"/>
+    <value-of select="
+      boolean(
+        root($node)/osis/osisText/header/
+        work[@osisWork = $workid]/type[@type='x-bible']
+      ) and (
+          boolean(
+            $node/preceding::chapter[1]/@sID =
+            $node/following::chapter[1]/@eID
+          ) or
+          boolean(
+            $node/preceding::chapter[1]/@sID =
+            $node/descendant::chapter[1]/@eID
+          ) or
+          boolean($node/ancestor::title[@canonical='true'])
+      )"/>
+  </function>
+
+  <function name="oo:isGlossaryNote" as="xs:boolean">
+    <param name="reference" as="element(reference)"/>
+    <value-of select="
+      $reference[@type='x-glossary'] and
+      not($reference/@osisRef = ($REF_BibleTop, $REF_DictTop)) and
+      not(contains($reference/@osisRef, '!')) and
+      not($reference[ancestor::note]) and
+      oo:inChapter($reference)"/>
+  </function>
+
+  <function name="oo:targetElement" as="element()*">
+    <param name="osisRef" as="xs:string"/>
+    <param name="docs" as="node()+"/>
+    <variable name="workid" select="tokenize($osisRef, ':')[1]"/>
+    <variable name="osisRef" select="tokenize($osisRef, ':')[2]"/>
+    <for-each select="$docs/osis/osisText[@osisIDWork = $workid]">
+      <sequence select="key('osisID', $osisRef, root(.))"/>
+    </for-each>
+  </function>
 
   <function name="oo:fb2SectionContent" as="element()+">
     <param name="content" as="node()*"/>

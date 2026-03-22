@@ -125,6 +125,11 @@
     <param name="preprocessedRefOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
 
+
+    <variable name="glossNotes" select="
+      $inputOSIS//reference[oo:isGlossaryNote(.)]/
+      oo:targetElement(@osisRef, $inputOSIS)"/>
+
     <element name="FictionBook"
       namespace="http://www.gribuser.ru/xml/fictionbook/2.0">
       <namespace name="xlink">http://www.w3.org/1999/xlink</namespace>
@@ -189,16 +194,13 @@
         </for-each>
       </fb2:body>
 
-      <if test="
-          $inputOSIS//note or
-          $inputOSIS//seg[@type='keyword'][@isNote='yes']">
+      <if test="$inputOSIS//note or $glossNotes">
         <fb2:body name="notes">
           <fb2:title>
             <fb2:p id="{concat('p.1.', generate-id(.))}">Notes</fb2:p>
           </fb2:title>
           <!-- glossary keywords as notes (included also in TOC) -->
-          <for-each select="$inputOSIS//
-              seg[@type='keyword'][@isNote='yes']">
+          <for-each select="$glossNotes">
             <variable name="content" as="node()*">
               <apply-templates mode="tran" select="
                 ancestor::div[starts-with(@type, 'x-keyword')][1]/
