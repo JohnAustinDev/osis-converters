@@ -33,7 +33,6 @@ require("$SCRD/lib/dict/addDictLinks.pm");
 
 # This sub expects an OSIS input file produced by usfm2osis.py
 sub processOSIS {
-  my $inosis = shift;
 
   # Return if previous tmp files are to be used for debugging
   if ($NO_OUTPUT_DELETE) {return;}

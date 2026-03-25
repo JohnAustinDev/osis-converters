@@ -45,17 +45,21 @@
       </with-param>
     </call-template>
 
-    <!-- Check for duplicate osisIDs -->
-    <for-each select="//*[@osisID][
-      (for $i in (
-        if (not($isChildrensBible) and not($isGenericBook)) then tokenize(@osisID, '\s+') else @osisID
-      ) return count(key('osisID', $i))) != 1
-    ]">
-      <call-template name="Error">
+    <!-- Check for duplicate osisIDs. Generic Books currently rely on osisID
+    to specify the chapter title, and chapter titles are NOT necessarily
+    unique (often aren't) therefore Generic Books skip this check. -->
+    <if test="not($isGenericBook)">
+      <for-each select="//*[@osisID][
+        (for $i in (
+          if (not($isChildrensBible) and not($isGenericBook)) then tokenize(@osisID, '\s+') else @osisID
+        ) return count(key('osisID', $i))) != 1
+      ]">
+        <call-template name="Error">
 <with-param name="msg">osisID is not unique: <value-of select="@osisID"/></with-param>
 <with-param name="exp">There are multiple elements with the same osisID, which is not allowed.</with-param>
-      </call-template>
-    </for-each>
+        </call-template>
+      </for-each>
+    </if>
 
     <!-- Check for bad osisRef values -->
     <for-each select="//reference[not(@osisRef) or not(normalize-space(@osisRef))]">

@@ -38,7 +38,7 @@ CF_sfm2osis.txt file.", 1);
 
 &sfm2osis($commandFile, $OSIS);
 
-&processOSIS($OSIS);
+&processOSIS();
 
 if ($NO_OUTPUT_DELETE) {
   # When NO_OUTPUT_DELETE = true, then the following debug code will 

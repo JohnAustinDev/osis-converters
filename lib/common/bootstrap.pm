@@ -265,8 +265,12 @@ sub checkModuleDir {
   if (!-d $inpd) {
     return "\nABORT: Not a directory: '$inpd'\n";
   }
-  elsif (!-d "$inpd/sfm" && !-d "$inpd/../sfm" &&
-         !-e "$inpd/CF_osis2osis.txt" && !-e "$inpd/../CF_osis2osis.txt") {
+  elsif (
+    !-d "$inpd/sfm" &&
+    !-d "$inpd/../sfm" &&
+    !-e "$inpd/CF_osis2osis.txt" &&
+    !-e "$inpd/../CF_osis2osis.txt"
+  ) {
     return "\nABORT: Not an osis-converters project: '$inpd'\n";
   }
 }

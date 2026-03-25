@@ -802,16 +802,13 @@
         <otherwise><value-of select="1"/></otherwise>
       </choose>
     </variable>
-    <choose>
-      <when test="$result &#60;= 3"><value-of select="$result"/></when>
-      <otherwise>
-        <call-template name="Error">
+    <value-of select="$result"/>
+    <if test="$result &#62; 3">
+      <call-template name="Error">
 <with-param name="msg">Maximum TOC level exceeded (<value-of select="$result"/> &#62; 3) defaulting to 3: <value-of select="oc:printNode($tocElement)"/></with-param>
 <with-param name="exp">EBook readers handle up to 3 levels of TOC. Use [levelN] TOC instructions to reduce the hierarchy level.</with-param>
-        </call-template>
-        <value-of select="'3'"/>
-      </otherwise>
-    </choose>
+      </call-template>
+    </if>
   </function>
 
   <!-- oo:getTocInstructions returns all TOC instructions of a TOC element.

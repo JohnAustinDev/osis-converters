@@ -217,7 +217,7 @@ our @CF_FILES = ('config.conf', 'CF_sfm2osis.txt', 'CF_<vsys>.xml',
     'CF_addScripRefLinks.txt', 'CF_addDictLinks.xml',
     'CF_addFootnoteLinks.txt');
 
-our @CF_OSIS2OSIS = ('SourceProject', 'CC', 'CCOSIS',
+our @CF_OSIS2OSIS = ('SourceProject', 'CC', 'CCOSIS', 'INOSIS',
     'Mode[copy]', 'Mode[script]', 'Mode[transcode]',
     'Mode[cctable]', 'MATCHES:Config\[.+\]', 'SkipNodesMatching',
     'SkipStringsMatching');

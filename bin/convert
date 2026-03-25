@@ -1,30 +1,30 @@
 #!/usr/bin/perl
 # This file is part of "osis-converters".
-# 
+#
 # Copyright 2021 John Austin (gpl.programs.info@gmail.com)
-#     
-# "osis-converters" is free software: you can redistribute it and/or 
-# modify it under the terms of the GNU General Public License as 
-# published by the Free Software Foundation, either version 2 of 
+#
+# "osis-converters" is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 2 of
 # the License, or (at your option) any later version.
-# 
+#
 # "osis-converters" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with "osis-converters".  If not, see 
+# along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
 # Run specified conversions for any number of projects, as quickly as possible
 
 use strict;
 
-our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES, $SCRD, 
-    $INPD, $DEBUG, $VAGRANT, $MODRE, $CONVERSION, $SKIPRE, 
-    $LOGFILE, $NO_ADDITIONAL, $INFO, @RUN, %DEPENDENCIES, @RUN_PROJ, 
-    @RUN_MODS, @IGNORE_PROJ, $JOBMSG, %CONV_OUTPUT_FILES, 
+our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES, $SCRD,
+    $INPD, $DEBUG, $VAGRANT, $MODRE, $CONVERSION, $SKIPRE,
+    $LOGFILE, $NO_ADDITIONAL, $INFO, @RUN, %DEPENDENCIES, @RUN_PROJ,
+    @RUN_MODS, @IGNORE_PROJ, $JOBMSG, %CONV_OUTPUT_FILES,
     %CONV_OUTPUT_SUBDIR, %ARGS, $MAINMOD);
 
 BEGIN {
@@ -68,16 +68,16 @@ $JOBMSG = "Scheduling ".@RUN." jobs on ".@RUN_PROJ.
     " projects (".@RUN_MODS." modules):\n";
 my $dr;
 foreach my $rP (sort { $a->{'m'} cmp $b->{'m'} } @RUN) {
-  my $outdir = ( !&runningInVagrant() ? 
-    File::Spec->abs2rel(&modOutdir($INFO, $rP->{'m'}), $SCRD) : 
+  my $outdir = ( !&runningInVagrant() ?
+    File::Spec->abs2rel(&modOutdir($INFO, $rP->{'m'}), $SCRD) :
     File::Spec->abs2rel(&hostPath(&modOutdir($INFO, $rP->{'m'})), &hostPath($SCRD))
   );
-  $JOBMSG .= sprintf("%12s:%12s %-33s %s\n", 
-                $rP->{'m'}, 
+  $JOBMSG .= sprintf("%12s:%12s %-33s %s\n",
+                $rP->{'m'},
                 $rP->{'s'} . ( $rP->{'additional'} ? '*' : '' ),
-                &depmsg($rP->{'r'}, \%DEPENDENCIES), 
+                &depmsg($rP->{'r'}, \%DEPENDENCIES),
                 $outdir );
-                
+
   if ($rP->{'additional'}) {
     $dr = "*Added to meet all dependencies; use -n to skip these.";
   }
@@ -108,12 +108,12 @@ if (!&runningInVagrant()) {
     exit;
   }
 }
-   
+
 if (!&runningInVagrant() && $restartInVagrant) {
   if (-e &escfile("$SCRD/.hostinfo")) {unlink(&escfile("$SCRD/.hostinfo"));} # no longer used
   # Update .vm.conf's @OC_SYSTEM_PATH_CONFIGS Vagrant paths
   foreach my $m (@RUN_PROJ) {
-    $INPD = $INFO->{$m}{'path'}; 
+    $INPD = $INFO->{$m}{'path'};
     $MAINMOD = $m;
     &set_project_globals();
     &set_system_globals();
@@ -139,14 +139,14 @@ sub processArguments {
     print &usage();
     exit 1;
   }
-  
+
   my $dir = ($LOGFILE =~ /^(.*)[\\\/][^\\\/]+$/ ? $1:'');
   if (!$dir || ! -d $dir) {
     print "ABORT: log file directory does not exist: $LOGFILE\n";
     print &usage();
     exit 1;
   }
-  
+
   # If INPD is within a project subdirectory, change it to the main
   # project directory.
   my $projdir = $INPD;
@@ -158,9 +158,9 @@ sub processArguments {
     }
     pop(@p);
   }
-  
-  # If INPD is a project main directory and -m was not specified, 
-  # then adjust INPD to the parent dir and set -m to 'MOD(DICT)?'. 
+
+  # If INPD is a project main directory and -m was not specified,
+  # then adjust INPD to the parent dir and set -m to 'MOD(DICT)?'.
   # This allows any dependencies to be located.
   my $adjust;
   if (!$ARGS{'m'} && ! -e "$projdir/defaults") {
@@ -173,34 +173,34 @@ sub processArguments {
       $projdir .= "/$adjust";
     }
   }
-  
+
   # Adjust MODRE and SKIP...
   # If -m was specified as a single non-DICT module, but INPD is a
   # project parent directory (non-adjusted), then include the DICT mod.
-  if (!$adjust && $ARGS{'m'} && -e "$projdir/defaults" 
+  if (!$adjust && $ARGS{'m'} && -e "$projdir/defaults"
       && $MODRE =~ /^[A-Z]+$/ && $MODRE !~ /DICT$/) {
     $MODRE = '^'.$MODRE.'(DICT)?$';
   }
   elsif ($ARGS{'m'} && $MODRE !~ /(^\^|\$$)/) {$MODRE = '^'.$MODRE.'$';}
   if ($ARGS{'x'} && $SKIPRE !~ /(^\^|\$$)/) {$SKIPRE = '^'.$SKIPRE.'$';}
-  
+
   return $projdir;
 }
 
 sub depmsg {
   my $run = shift;
   my $depP = shift;
-  
+
   my $deps = join(', ', @{$depP->{$run}});
   my $depmsg = ($deps ? "(after $deps)":'');
   $depmsg =~ s/ (osis2osis|sfm2osis)//g;
-  
+
   return $depmsg;
 }
 
 sub projects {
   my $infoP = shift;
-           
+
   my (%m, %p, %ip);
   my $mod = shift;
   while ($mod) {
@@ -214,14 +214,14 @@ sub projects {
       }
     }
     else {$ip{$mod}++;}
-    
+
     $mod = shift;
   }
-  
+
   my %result = ( 'm'  => [ sort keys %m  ],   # modules
                  'p'  => [ sort keys %p  ],   # projects
                  'ip' => [ sort keys %ip ] ); # ignored projects
-  
+
   return \%result
 }
 
@@ -229,11 +229,11 @@ sub projects {
 # projects in $pdir
 sub getProjectsInfo {
   my $pdir = shift;
-  
+
   opendir(DIR, $pdir) or die;
   my @projects = readdir(DIR);
   closedir(DIR);
-  
+
   my %info;
   foreach my $proj (@projects) {
     if ($proj eq '..' || !-d "$pdir/$proj") {next;}
@@ -244,7 +244,7 @@ sub getProjectsInfo {
     if (! -e "$pdir/$proj/CF_osis2osis.txt" && ! -e "$pdir/$proj/config.conf") {next;}
     &getProjectInfo($pdir, $proj, \%info);
   }
-  
+
   # Create info for dict modules now
   foreach my $proj (keys %info) {
     if (!&dict($proj, \%info)) {next;}
@@ -256,26 +256,26 @@ sub getProjectsInfo {
       $info{$proj.'DICT'}{'sourceProject'} = $info{$proj}{'sourceProject'};
     }
   }
-  
+
   # Add module types
   foreach my $m (keys %info) {
     if (!$info{$m}{'runable'}) {next;}
-    
+
     if ($m =~ /DICT$/) {
       $info{$m}{'type'} = 'dictionary';
       next;
     }
-    
+
     my $cp = $info{$m}{'configProject'};
     my $cpm = ($m =~ /DICT$/ ? $cp.'DICT' : $cp);
     my $type = $info{$cp}{"$cpm+ProjectType"};
-    
+
     if (!$type) {
       my $sp = $info{$m}{'sourceProject'};
       my $spm = ($m =~ /DICT$/ ? $sp.'DICT':$sp);
       $type = $info{$sp}{"$spm+ProjectType"};
     }
-    
+
     $info{$m}{'type'} = $type;
   }
 
@@ -288,24 +288,24 @@ sub getProjectInfo {
   my $infoP = shift;
 
   if ($proj eq 'defaults') {return;}
-  
-  # - sourceProject is osis2osis source project, or else undef 
+
+  # - sourceProject is osis2osis source project, or else undef
   # if OSIS will be created by sfm2osis (the usual case).
   # - configProject is the the MAIN module of a project if it has a
-  # config.conf or else the MAIN module of the sourceProject if there 
-  # is a sourceProject with a config.conf (projects with a 
-  # CF_osis2osis.txt file might not have their own config.conf file 
-  # until after osis2osis is run, so this script may reference the 
+  # config.conf or else the MAIN module of the sourceProject if there
+  # is a sourceProject with a config.conf (projects with a
+  # CF_osis2osis.txt file might not have their own config.conf file
+  # until after osis2osis is run, so this script may reference the
   # sourceProject's config.conf in such a case).
-  
+
   if (-e "$pdir/$proj/CF_osis2osis.txt") {
-    open(CF, "<:encoding(UTF-8)", "$pdir/$proj/CF_osis2osis.txt") 
+    open(CF, "<:encoding(UTF-8)", "$pdir/$proj/CF_osis2osis.txt")
       or die;
     while(<CF>) {
-      if ($_ =~ /^SourceProject:(.*?)\s*$/) {
+      if ($_ =~ /^SourceProject:\s*(.*?)\s*$/) {
         my $sourceProject = $1;
         # If CF_osis2osis.txt has SourceProject, its modules are
-        # considered runnable.
+        # considered runable.
         $infoP->{$proj}{'runable'}++;
         $infoP->{$proj}{'path'} = &shortPath("$pdir/$proj");
         $infoP->{$proj}{'sourceProject'} = $sourceProject;
@@ -313,14 +313,20 @@ sub getProjectInfo {
       }
       if ($_ =~ /^CCOSIS\:\s*(\S+)\s*$/) {
         $infoP->{$proj}{'CCOSIS'}{$1}++;
+      } elsif ($_ =~ /^INOSIS\:\s*(\S+)\s*$/) {
+        # INOSIS is also considered runable
+        $infoP->{$proj}{'INOSIS'}{$1}++;
+        $infoP->{$proj}{'runable'}++;
+        $infoP->{$proj}{'path'} = &shortPath("$pdir/$proj");
+        $infoP->{$proj}{'sourceProject'} = $proj;
       }
     }
     close(CF);
   }
-  
+
   if (!-e "$pdir/$proj/config.conf") {return;}
   $infoP->{$proj}{'configProject'} = $proj;
-  
+
   # Projects where config.conf contains [system] are considered runnable
   my $cp = $infoP->{$proj}{'configProject'};
   if (&shell("grep '\\[system\\]' \"$pdir/$cp/config.conf\"", 3, 1)) {
@@ -341,20 +347,20 @@ sub getScriptsToRun {
   my $keepRE = shift;
   my $skipRE = shift;
   my $infoP = shift;
-  
+
   # Get all scripts requested to be run
   my @scripts = &conversionScripts($conversion);
-  
+
   # Apply them correctly to the targeted modules
   my @run;
   foreach my $m (sort keys %{$infoP}) {
     my @s = @scripts;
-    
+
     # Skip non-target and non-runnable modules
     if (!$infoP->{$m}{'runable'}) {next;}
     if ($keepRE && $keepRE ne 'all' && $m !~ /$keepRE/) {next;}
     if ($skipRE && $m =~ /$skipRE/) {next;}
-    
+
     # Remove no can dos
     my $noCanDoAP = $CONV_NOCANDO{$infoP->{$m}{'type'}};
     if (defined($noCanDoAP)) {
@@ -365,7 +371,7 @@ sub getScriptsToRun {
         }
       }
     }
-    
+
     # Remove if ARG_skipConversion is set in config.conf
     for (my $i=0; $i<@s; $i++) {
       my $scr = @s[$i];
@@ -375,7 +381,7 @@ sub getScriptsToRun {
         print "WARNING: ARG_skipConversion is skipping: '$scr $m'\n";
       }
     }
-    
+
     # Resolve the osis pathway and apply/remove as needed
     for (my $i=0; $i<@s; $i++) {
       if (@s[$i] !~ /osis$/) {next;}
@@ -383,11 +389,11 @@ sub getScriptsToRun {
       if (@s[$i] eq 'osis') {@s[$i] = $myosis;}
       elsif (@s[$i] ne $myosis) {splice(@s, $i, 1); $i--;}
     }
-    
+
     # Run the remaining scripts on the module
     foreach my $s (@s) {push(@run, &run($s, $m, $infoP));}
   }
-  
+
   return @run;
 }
 
@@ -398,38 +404,38 @@ sub run {
   my $module = shift;
   my $infoP = shift;
   my $isAdditional = shift;
-  
+
   return {
     'r' => "$script $module",
-    's' =>  $script, 
-    'm' =>  $module, 
+    's' =>  $script,
+    'm' =>  $module,
     'p' =>  $infoP->{$module}{'path'},
     'o' =>  &modOutdir($infoP, $module),
     'additional' => $isAdditional,
   };
 }
 
-# Return a list of osis-converters scripts to be invoked for any given 
+# Return a list of osis-converters scripts to be invoked for any given
 # convert argument to this script.
 sub conversionScripts {
   my $conversion = shift;
-  
+
   my @scripts;
-  
+
   foreach (@CONV_OSIS) {
     if ($conversion eq 'osis' ||$conversion eq $_) {
       push(@scripts, $_);
-      return @scripts; 
+      return @scripts;
     }
   }
-  
+
   if ($conversion =~ /^(.*)2(.*)$/)   {
     my $from = $1; my $to = $2;
     if ($from eq 'sfm') {push(@scripts, 'osis');}
     if ($to eq 'all')   {push(@scripts, @CONV_PUBS);}
     else {push(@scripts, "osis2$to");}
   }
-  
+
   return @scripts;
 }
 
@@ -438,14 +444,14 @@ sub getDependencies {
   my $runAP = shift;
   my $infoP = shift;
   my $dependencyHP = shift;
-  
+
   my %deps; if (!$dependencyHP) {$dependencyHP = \%deps;}
-  
+
   foreach my $rP (@{$runAP}) {
     if (defined($dependencyHP->{$rP->{'r'}})) {next;}
     &addDependencies($conversion, $dependencyHP, $rP, $infoP);
   }
-  
+
   # When requested, remove dependencies on modules which are not being run
   if ($NO_ADDITIONAL) {
     my %rms; map($rms{$_}++, map($_->{'m'}, @{$runAP}));
@@ -454,7 +460,7 @@ sub getDependencies {
         @{$dependencyHP->{$r}}[$i] =~ /^(\S+) (\S+)$/;
         my $s = $1; my $m = $2;
         if (defined($rms{$m})) {next;}
-        print "WARNING: skipping dependency (-n option is set):\n" . 
+        print "WARNING: skipping dependency (-n option is set):\n" .
           sprintf("%12s:%12s %-33s %s\n\n", $m, $s, &depmsg($r, $dependencyHP), 'SKIPPED');
         splice(@{$dependencyHP->{$r}}, $i, 1); $i--;
       }
@@ -467,8 +473,8 @@ sub getDependencies {
       for (my $i=0; $i<@{$dependencyHP->{$r}}; $i++) {
         my $d = @{$dependencyHP->{$r}}[$i];
         foreach (@{$runAP}) {if ($_->{'r'} eq $d) {next DEP;}}
-        
-        # This dependency is not a requested run, but is required, so add 
+
+        # This dependency is not a requested run, but is required, so add
         # an additional run or else abort.
         $d =~ /^(\S+) (\S+)$/; my $s = $1; my $m = $2;
         if ($infoP->{$m} && $infoP->{$m}{'runable'}) {
@@ -478,14 +484,14 @@ sub getDependencies {
         else {
           print "
 ABORT: could not locate a required module: '$m' in '$PROJDIR'.
-Use the -n flag to run anyway without it, or use a project directory 
+Use the -n flag to run anyway without it, or use a project directory
 containing the necessary project(s).";
           exit 1;
         }
       }
     }
   }
-  
+
   return %{$dependencyHP};
 }
 
@@ -494,24 +500,24 @@ sub addDependencies {
   my $depsP = shift;
   my $rP = shift; my $r=$rP->{'r'}; my $s=$rP->{'s'}; my $m=$rP->{'m'};
   my $infoP = shift;
-  
+
   my $main = &main($m, $infoP);
   my $dict = &dict($m, $infoP);
   my $smain = $infoP->{$main}{'sourceProject'};
-  
+
   $depsP->{$r} = [];
-  
-  my %deps; my $dkey = 
+
+  my %deps; my $dkey =
     ( $s =~ /(^sfm|osis$)/ ? 'osis' : ($s =~ /2(.*?)$/ ? $1:'none') ) .
     ' ' .
     ($dict && $m eq $dict ? 'DICT':'MAIN');
-   
+
   &addDependency($conversion, \%deps, $dkey, $m, $smain, $infoP);
-  if ($smain) {
+  if ($smain && ($smain ne $main)) {
     $dkey .= '(with-sourceProject)';
     &addDependency($conversion, \%deps, $dkey, $m, $smain, $infoP);
   }
-  
+
   foreach my $d (sort keys %deps) {push(@{$depsP->{$r}}, $d);}
 }
 
@@ -524,30 +530,30 @@ sub addDependency {
   my $infoP = shift;
 
   if (!defined($CONV_DEPENDENCIES{$key})) {return;}
-  
+
   foreach my $d (@{$CONV_DEPENDENCIES{$key}}) {
     $d =~ /^(\S+) (\S+)$/; my $st = $1; my $mt = $2;
-    
+
     my $ifExists = ($mt =~ s/\?$// ? 1:0);
-    
-    # Don't include the OSIS creation dependencyies when converting from 
-    # OSIS, instead use the pre-existing OSIS files. 
+
+    # Don't include the OSIS creation dependencyies when converting from
+    # OSIS, instead use the pre-existing OSIS files.
     if ($st eq 'osis' && $conversion =~ /^osis2/) {next;}
-     
+
     my $mod;
     if    ($mt eq 'MAIN')                {$mod = &main($m, $infoP); }
     elsif ($mt eq 'DICT')                {$mod = &dict($m, $infoP); }
     elsif ($mt eq 'MAIN(sourceProject)') {$mod = &main($smain, $infoP);}
     elsif ($mt eq 'DICT(sourceProject)') {$mod = &dict($smain, $infoP);}
-    
+
     if (!$mod && $ifExists) {next;}
-    
+
     if (!$mod) {
       print "
 ABORT: failed to decode dependency: $d (m=$m, smain=$smain)\n";
       exit 1;
     }
-    
+
     my $script = ($st eq 'osis' ? &osisScript($mod, $infoP) : "osis2$st");
 
     $hashP->{"$script $mod"}++;
@@ -560,9 +566,9 @@ ABORT: failed to decode dependency: $d (m=$m, smain=$smain)\n";
 sub main {
   my $m = shift;
   my $infoP = shift; if (!$infoP) {$infoP = $INFO;}
-  
+
   if (!$infoP->{$m} || !$infoP->{$m}{'runable'}) {return;}
-  
+
   my $main = $infoP->{$m}{'configProject'};
   if (!$main) {print "ABORT: no configProject for $m\n"; exit 1;}
 
@@ -574,17 +580,17 @@ sub main {
 sub dict {
   my $m = shift;
   my $infoP = shift; if (!$infoP) {$infoP = $INFO;}
-  
+
   # Only runable projects can have dictionaries
   my $dict;
   if ($infoP->{$m}{'runable'}) {
-  
-    # If this project has a sourceProject, we must look at 
+
+    # If this project has a sourceProject, we must look at
     # sourceProject's conf.
-    my $sproj = ( $infoP->{$m}{'sourceProject'} ? 
+    my $sproj = ( $infoP->{$m}{'sourceProject'} ?
       $infoP->{$m}{'sourceProject'}:$infoP->{$m}{'configProject'} );
-   
-    # It must have a sub-module 
+
+    # It must have a sub-module
     if (-d $infoP->{$sproj}{'path'} . '/' . $sproj.'DICT') {
       $dict = ($m !~ /DICT$/ ? $m.'DICT':$m);
     }
@@ -593,22 +599,26 @@ sub dict {
   return $dict;
 }
 
-# Returns the script that will be used to create the module's OSIS file 
+# Returns the script that will be used to create the module's OSIS file
 # (sfm2osis or osis2osis).
 sub osisScript {
   my $m = shift;
   my $infoP = shift; if (!$infoP) {$infoP = $INFO;}
-  
+
   if (!$infoP->{$m}{'sourceProject'}) {
     return 'sfm2osis';
   }
-  
+
   if (!&dict($m, $infoP)) {
     return 'osis2osis';
   }
-  
+
   my $main = $m; $main =~ s/DICT$//;
-  return ($infoP->{$main}{'CCOSIS'}{$m} ? 'osis2osis':'sfm2osis');
+  return (
+    $infoP->{$main}{'CCOSIS'}{$m} || $infoP->{$main}{'INOSIS'}{$m}
+    ? 'osis2osis'
+    : 'sfm2osis'
+  );
 }
 
 # Return the output directory where the OSIS file will go. It is an
@@ -617,9 +627,9 @@ sub osisScript {
 sub modOutdir {
   my $infoP = shift;
   my $m = shift;
-  
+
   my $p = $m; $p =~ s/DICT$//;
-  
+
   my $outdir;
   if (!&runningInVagrant()) {
     $outdir = $infoP->{$p}{'system+OUTDIR'};
@@ -632,12 +642,12 @@ sub modOutdir {
     my $cP = &readConfFile("$SCRD/.vm.conf");
     $outdir = $cP->{"$p+OUTDIR"};
   }
-    
-  $outdir = ( $outdir ? 
-      "$outdir/$m" : 
+
+  $outdir = ( $outdir ?
+      "$outdir/$m" :
       $infoP->{$p}{'path'}.'/'.($m =~ /DICT$/ ? "$m/":'')."output"
     );
- 
+
   return &shortPath($outdir);
 }
 
@@ -666,7 +676,7 @@ my $STARTTIME;
 
 if (!&runningInVagrant()) {ReadMode(4);}
 
-# Now run all jobs until there is nothing left to do, or the ESC key is 
+# Now run all jobs until there is nothing left to do, or the ESC key is
 # pressed.
 my $NUM_CONVERSIONS :shared = 0;
 my %DONE :shared;
@@ -676,13 +686,13 @@ my $KEY = 0;
 my $PAUSED = 0;
 my $KILLED = 0;
 my @THREADS;
-while ( ( &working(\@STARTED, \%DONE) || @RUN ) && 
-          $KEY != 27 
+while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
+          $KEY != 27
       ) { # 27 is ESC key
-      
+
   $KEY = 0; # clear if set by inner while loop
   while ( @RUN && !$PAUSED && $KEY != 27 && &resourcesAvailable(7, '25%', 'convert') ) {
-    # Start another conversion, skipping over any conversion whose 
+    # Start another conversion, skipping over any conversion whose
     # dependencies are not done.
     my $x = -1;
     my $ok;
@@ -693,7 +703,7 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
         if (!$DONE{$run}) {$ok = 0;}
       }
     } while ($x < $#RUN && !$ok);
-    
+
     if (@{$DEPENDENCIES{$RUN[$x]->{'r'}}}) {
       if (!$ok) {
         print "Waiting for dependencies...\n".
@@ -702,7 +712,7 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
       print "NOTE: Dependencies of ".$RUN[$x]->{'r'}." are done:\n\t".
       join("\n\t", @{$DEPENDENCIES{$RUN[$x]->{'r'}}})."\n";
     }
-    
+
     sleep(2); # so jobs don't start too close together
     push(@THREADS, threads->create(sub {
       print "Starting: ".$RUN[$x]->{'r'}."\n";
@@ -711,15 +721,15 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
       $DONE{$RUN[$x]->{'r'}}++;
       print "Exiting: ".$RUN[$x]->{'r'}."\n";
     }));
-    
+
     $NUM_CONVERSIONS++;
     my $s = splice(@RUN, $x, 1);
     push(@STARTED, $s->{'r'});
     if (@RUN) {print("There are ".@RUN." jobs left...\n");}
-    
+
     &readKey();
   }
-  
+
   sleep(1);
 
   if (!$KEY) {  # allow KEY already set by inner while loop to break outer loop
@@ -743,7 +753,7 @@ else {
 
 END {
   if (exists(&ReadMode)) {ReadMode(0);}
-  
+
   foreach my $th (@THREADS) {$th->join();}
 
   &timer('stop');
@@ -755,17 +765,17 @@ END {
 # Run osis-converters on a module, and report.
 sub runScript {
   my $rP = shift;
-  
+
   my $script = $rP->{'s'};
   my $mod    = $rP->{'m'};
   my $path   = $rP->{'p'};
   my $outdir = $rP->{'o'};
-  
+
   my $startTime = time;
-  
+
   my %args = ('first' => $path);
   my $cmd = &escfile("$SCRD/bin/$script"). ' ' . &writeArgs(\%args);
-  
+
   print "Started: $cmd\n";
   my $result = &shell($cmd, 3);
 
@@ -774,25 +784,25 @@ sub runScript {
     if ($line !~ /ERROR/) {next;}
     push(@errors, "$mod $line");
   }
-  
+
   our $MOD = $mod; # for conversionTestFile() to work
   if (!&conversionTestFile($startTime, $script, $outdir)) {
     push(@errors, "$mod ERROR: No new output file for $script");
   }
-  
+
   if (@errors) {
-    &Log(sprintf("\nFAILED:  %12s %9s FINISHED WITH %i ERROR(s).\n", 
-          $script, 
-          $mod, 
+    &Log(sprintf("\nFAILED:  %12s %9s FINISHED WITH %i ERROR(s).\n",
+          $script,
+          $mod,
           scalar @errors
     ));
     foreach my $e (@errors) {&Log("$e\n");}
     &Log("\n");
     return;
   }
-  
-  &Log(sprintf("SUCCESS! %12s %9s is FINISHED.\n", 
-        $script, 
+
+  &Log(sprintf("SUCCESS! %12s %9s is FINISHED.\n",
+        $script,
         $mod
   ));
 }
@@ -803,7 +813,7 @@ sub conversionTestFile {
   my $startTime = shift;
   my $script = shift;
   my $outdir = shift;
-  
+
   foreach my $test (@{$CONV_OUTPUT_FILES{$script}}) {
     my $t = &const($test);
     my $sd = '';
@@ -814,13 +824,13 @@ sub conversionTestFile {
       if ((stat($f))[9] > $startTime) {return 1;}
     }
   }
-  
+
   return 0;
 }
 
 sub timer {
   my $do = shift;
- 
+
   if ($do =~ /start/i) {
     &Log("start time: ".localtime()."\n");
     $STARTTIME = DateTime->now();
@@ -837,19 +847,19 @@ sub timer {
   }
 }
 
-# Return the number of projects currently running, and print or log a 
+# Return the number of projects currently running, and print or log a
 # message about the currently running projects.
 my $LASTMSG;
 sub working {
   my $startedAP = shift;
   my $doneHP = shift;
-  my $logOrPrint = shift; # 'log' means log msg. Otherwise print msg. 
+  my $logOrPrint = shift; # 'log' means log msg. Otherwise print msg.
 
   my @working;
   foreach my $r (@{$startedAP}) {
     if (!$doneHP->{$r}) {push(@working, $r);}
   }
-  
+
   if ($logOrPrint || !$WAIT) {
     my $msg = "Working on: \n\t".join("\n\t", @working)."\n";
     if (!&runningInVagrant() && !$KILLED) {
@@ -861,18 +871,18 @@ sub working {
       }
       $msg .= "Press ESC to kill the scheduler.\n";
     }
-    
+
     if ($logOrPrint && $logOrPrint =~ /log/i) {&Log($msg);}
     elsif ($msg ne $LASTMSG) {
       print $msg;
       $LASTMSG = $msg;
     }
-    
+
     $WAIT = 15; # 30 seconds at 2 second sleeps
   }
-  
+
   $WAIT--;
-  
+
   return scalar @working;
 }
 

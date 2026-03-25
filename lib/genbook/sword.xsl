@@ -17,7 +17,9 @@
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
   </template>
 
-  <template match="@osisID"><attribute name="osisID" select="oc:decodeOsisRef(.)"/></template>
+  <template match="@osisID">
+    <attribute name="osisID" select="oc:titleCase(oc:decodeOsisRef(.))"/>
+  </template>
 
   <template match="div[not(@osisID)]">
     <apply-templates select="node()" mode="#current"/>

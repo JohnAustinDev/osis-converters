@@ -170,6 +170,7 @@
         <variable
           name="type"
           select="if ($level = 1) then 'book' else 'chapter'"/>
+        <!-- TODO: Better way possible? Because chapter titles are not unique, -->
         <osis:div type="{ $type }" osisID="{ oc:encodeOsisRef($title) }">
           <sequence select="$tocElement"/>
           <sequence select="oc:writeChapterContent($nodes, $nextLevel)"/>
