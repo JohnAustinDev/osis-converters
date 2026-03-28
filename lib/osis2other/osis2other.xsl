@@ -61,6 +61,10 @@
   <variable name="epub3Markup" as="xs:boolean" select="$noEpub3Markup != 'yes'"/>
   <variable name="htmext" select="'.html'"/>
 
+  <!-- FB2 default settings -->
+  <variable name="EnableFB2CSS" select="false()"/>
+  <variable name="EnableFB2FullResourceURL" select="false()"/>
+
   <!-- The main input OSIS file must contain a work element corresponding to each
      OSIS file referenced in the project. But osis-converters supports a single
      dictionary OSIS file only, which contains all reference material. -->
@@ -206,9 +210,11 @@
         <sequence select="oo:getInlineTocHTML($listdoc, $isTopTOC)"/>
       </when>
       <when test="$target = 'fb2'">
-        <fb2:p id="{concat('p.4.', generate-id($listdoc))}">
-          <sequence select="$listdoc/fb2:a"/>
-        </fb2:p>
+        <fb2:empty-line/>
+        <for-each select="$listdoc/fb2:a">
+          <fb2:p><sequence select="."/></fb2:p>
+        </for-each>
+        <fb2:empty-line/>
       </when>
     </choose>
   </function>
@@ -1214,7 +1220,7 @@
           $target = 'fb2' and
           normalize-space(.) and
           parent::*[self::div[@type='fb2:section']]">
-        <fb2:p><copy/></fb2:p>
+        <fb2:p id="{concat('p.1.', generate-id(.))}"><copy/></fb2:p>
       </when>
       <otherwise><copy/></otherwise>
     </choose>
@@ -1286,16 +1292,18 @@
         </variable>
         <variable name="content" as="node()*" select="
           $content0[
-            self::*[normalize-space()] or
-            self::fb2:tmpOsisID or
-            self::fb2:image]"/>
+            descendant-or-self::text()[normalize-space()] or
+            descendant-or-self::fb2:empty-line or
+            descendant-or-self::fb2:image or
+            descendant-or-self::fb2:tmpOsisID
+          ]"/>
         <if test="$content">
           <fb2:section>
             <if test="@osisID">
               <attribute name="id" select="oc:id(@osisID)"/>
             </if>
             <fb2:title>
-              <fb2:p id="{concat('p.5.', generate-id(.))}">
+              <fb2:p id="{concat('p.2.', generate-id(.))}">
                 <value-of select="
                   if ($tocElement)
                   then oc:titleCase(oo:getTocTitle(oo:origElement(
@@ -1875,7 +1883,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         </html:p>
       </when>
       <when test="$target = 'fb2'">
-        <fb2:p id="{concat('p.7.', generate-id(.))}">
+        <fb2:p id="{concat('p.3.', generate-id(.))}">
           <call-template name="classedContent">
             <with-param name="parentName" select="'p'"/>
           </call-template>
@@ -1938,7 +1946,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       </when>
       <when test="$target = 'fb2'">
         <variable name="contentFB2" as="node()*">
-          <fb2:p id="{concat('p.8.', generate-id(.))}">
+          <fb2:p id="{concat('p.4.', generate-id(.))}">
             <sequence select="oo:getClassedContent(., 'p', $content, '')"/>
           </fb2:p>
         </variable>
@@ -1978,7 +1986,10 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       </when>
       <when test="$target = 'fb2'">
         <choose>
-          <when test="$FullResourceURL and $FullResourceURL != 'false'">
+          <when test="
+              $EnableFB2FullResourceURL and
+              $FullResourceURL and
+              $FullResourceURL != 'false'">
             <fb2:a xlink:href="#fullResourceURL">
               <call-template name="classedContent">
                 <with-param name="parentName" select="'x'"/>
@@ -2542,7 +2553,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       </when>
       <when test="$target = 'fb2'">
         <choose>
-          <when test="$class">
+          <when test="$EnableFB2CSS and $class">
             <choose>
               <when test="$parentName = ('a', 'x')">
                 <!-- FB2 schema disallows styling of a elements. -->
@@ -2612,34 +2623,43 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     <param name="content" as="node()*"/>
     <!-- FB2 schema requires pType content after a section title. -->
     <choose>
-      <when test="$content//text()[normalize-space()]">
-        <!-- FB2 schema also requires that all section children be from
-        a particular type set. -->
+      <when test="
+          $content[descendant-or-self::text()[normalize-space()]] or
+          $content[
+            descendant-or-self::*[local-name() = ('image', 'empty-line')]
+          ]">
+        <!-- FB2 schema also requires that all section children only be
+        particular elements. -->
         <for-each select="$content">
           <choose>
             <when test="
-                  self::fb2:section or
-                  self::fb2:p or
-                  self::fb2:poem or
-                  self::fb2:subtitle or
-                  self::fb2:cite or
-                  self::fb2:empty-line or
-                  self::fb2:table or
-                  self::fb2:image or
-                  self::fb2:tmpOsisID">
+                self::fb2:section or
+                self::fb2:p or
+                self::fb2:poem or
+                self::fb2:subtitle or
+                self::fb2:cite or
+                self::fb2:empty-line or
+                self::fb2:table or
+                self::fb2:image or
+                self::fb2:tmpOsisID">
               <sequence select="."/>
             </when>
-            <when test="not(normalize-space(string(.)))"/>
-            <otherwise>
-              <fb2:p id="{concat('p.6.', generate-id(.))}">
+            <when test="
+                normalize-space(string(.)) or
+                descendant-or-self::*[
+                  local-name() = ('image', 'tmpOsisID', 'empty-line')
+                ]">
+              <fb2:p id="{concat('p.5.', generate-id(.))}">
                 <sequence select="."/>
               </fb2:p>
-            </otherwise>
+            </when>
           </choose>
         </for-each>
       </when>
       <otherwise>
-        <fb2:p><sequence select="$content"/></fb2:p>
+        <fb2:p id="{concat('p.6.', generate-id($content[1]))}">
+          <sequence select="$content[descendant-or-self::fb2:tmpOsisID]"/>
+        </fb2:p>
       </otherwise>
     </choose>
   </function>

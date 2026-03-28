@@ -1428,6 +1428,8 @@ sub makeEbook {
       } else {
         &Note("FB2 validates!: \"$out\"");
       }
+      &shell("zip '$out.zip' '$out'", 1);
+      $out = "$out.zip";
     }
     my @outdirs;
     if ($pubSubdir) {
@@ -1438,8 +1440,10 @@ sub makeEbook {
       my $outdir = $PUBOUT.$od; if (!-e "$outdir") {&make_path("$outdir");}
       # Server script may apply this placeholder, which cannot be known until now.
       $pubName =~ s/FORMAT/$format/g;
-      copy($out, "$outdir/$pubName.$format");
-      &Note("Created: $outdir/$pubName.$format\n", 1);
+      my $outfile = "$outdir/$pubName.$format";
+      if ($format eq 'fb2') {$outfile .= '.zip';}
+      copy($out, $outfile);
+      &Note("Created: $outfile\n", 1);
     }
     if (!$CONV_REPORT{$KEY}{'Format'}) {$CONV_REPORT{$KEY}{'Format'} = ();}
     push(@{$CONV_REPORT{$KEY}{'Format'}}, $format);

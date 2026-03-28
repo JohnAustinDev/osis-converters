@@ -1074,7 +1074,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
           </call-template>
         </if>
       </when>
-      <!-- Container elements without text are flattened -->
+      <!-- Remove tags of split container elements without text -->
       <when test="not( $node/descendant-or-self::text()[normalize-space()]
                        [oc:myExpelGroups(., $expel) = $currentGroupingKey] )
                   and $node/matches(local-name(), '^(div|p|l|lg|list|item|head|li|ul|td|tr)$')">
@@ -1181,21 +1181,30 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
   </function>
 
   <function name="oc:printNode" as="text()">
-    <param name="node" as="node()?"/>
+    <param name="node" as="node()*"/>
     <value-of>
       <choose>
         <when test="not($node)">NULL</when>
-        <when test="$node[self::element()]">
-          <value-of>[<value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each>]</value-of>
-        </when>
-        <when test="$node[self::text()]"><value-of select="concat('text-node = [', $node, ']')"/></when>
-        <when test="$node[self::comment()]"><value-of select="concat('comment-node = [', $node, ']')"/></when>
-        <when test="$node[self::attribute()]"><value-of select="concat('attribute-node: ', name($node), ' = [', $node, ']')"/></when>
-        <when test="$node[self::document-node()]"><value-of select="concat('document-node: ', base-uri($node))"/></when>
-        <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction: ', $node)"/></when>
-        <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
+        <otherwise>
+          <for-each select="$node">
+            <value-of>
+              <choose>
+                <when test="self::element()">
+                  <value-of>[<value-of select="./name()"/><for-each select="./@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each>]</value-of>
+                </when>
+                <when test="self::text()"><value-of select="concat('text-node = [', ., ']')"/></when>
+                <when test="self::comment()"><value-of select="concat('comment-node = [', ., ']')"/></when>
+                <when test="self::attribute()"><value-of select="concat('attribute-node: ', name(.), ' = [', ., ']')"/></when>
+                <when test="self::document-node()"><value-of select="concat('document-node: ', base-uri(.))"/></when>
+                <when test="self::processing-instruction()"><value-of select="concat('processing-instruction: ', .)"/></when>
+                <otherwise><value-of select="concat('other?:', .)"/></otherwise>
+              </choose>
+              <if test="."> (<value-of select="sx:line-number(.)"/>)</if>
+              <text>&#xa;</text>
+            </value-of>
+          </for-each>
+        </otherwise>
       </choose>
-      <if test="$node"> (<value-of select="sx:line-number($node)"/>)</if>
     </value-of>
   </function>
 

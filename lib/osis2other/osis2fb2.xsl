@@ -24,6 +24,10 @@
 
   <variable name="target" select="'fb2'"/>
 
+  <variable name="EnableFB2CSS" select="false()"/>
+
+  <variable name="EnableFB2FullResourceURL" select="false()"/>
+
   <key name="id" match="*[@id]" use="@id"/>
 
   <output method="xml" version="1.0" encoding="utf-8"
@@ -128,24 +132,26 @@
 
     <variable name="glossNotes" select="
       $inputOSIS//reference[oo:isGlossaryNote(.)]/
-      oo:targetElement(@osisRef, $inputOSIS)"/>
+      oo:targetElement(@osisRef, $inputOSIS)[self::seg[@type='keyword']]/."/>
 
     <element name="FictionBook"
       namespace="http://www.gribuser.ru/xml/fictionbook/2.0">
       <namespace name="xlink">http://www.w3.org/1999/xlink</namespace>
 
-      <fb2:stylesheet type="text/css">
-        <for-each select="tokenize($css, '\s*,\s*')">
-          <if test="unparsed-text-available(.)">
-            <text>&#xa;</text><value-of select="unparsed-text(.)"/>
-          </if>
-          <if test="not(unparsed-text-available(.))">
-            <call-template name="Error">
+      <if test="$EnableFB2CSS">
+        <fb2:stylesheet type="text/css">
+          <for-each select="tokenize($css, '\s*,\s*')">
+            <if test="unparsed-text-available(.)">
+              <text>&#xa;</text><value-of select="unparsed-text(.)"/>
+            </if>
+            <if test="not(unparsed-text-available(.))">
+              <call-template name="Error">
 <with-param name="msg" select="concat('Could not find CSS file: ', .)"/>
-            </call-template>
-          </if>
-        </for-each>
-      </fb2:stylesheet>
+              </call-template>
+            </if>
+          </for-each>
+        </fb2:stylesheet>
+      </if>
 
       <description xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
         <title-info>
@@ -197,61 +203,47 @@
       <if test="$inputOSIS//note or $glossNotes">
         <fb2:body name="notes">
           <fb2:title>
-            <fb2:p id="{concat('p.1.', generate-id(.))}">Notes</fb2:p>
+            <fb2:p>Notes</fb2:p>
           </fb2:title>
           <!-- glossary keywords as notes (included also in TOC) -->
           <for-each select="$glossNotes">
-            <variable name="content" as="node()*">
-              <apply-templates mode="tran" select="
-                ancestor::div[starts-with(@type, 'x-keyword')][1]/
-                child::node()[not(
-                  self::title[
-                    @subType=('x-glossary-scope', 'x-glossary-title')
-                  ])]"/>
-            </variable>
-            <!-- Remove duplicate ids from FB2 node copies or else validation
-            will fail. Saxon-b optimizes out all copy methods intended to make
-            generate-id produce unique ids (copy-of, tmp element, etc.) so
-            apply-templates removeIDs is used. -->
-            <if test="$content">
-              <variable name="section">
-                <fb2:section id="{oc:id(@osisID)}.note">
-                  <sequence select="oo:fb2SectionContent($content)"/>
-                </fb2:section>
+            <variable name="keyword" as="node()*" select="text()"/>
+            <!-- remove disambiguation headings and keyword -->
+            <variable name="body" as="node()*">
+              <variable name="filteredOsis">
+                <apply-templates mode="filterOsisGlossNoteBody" select="
+                  ancestor::div[starts-with(@type, 'x-keyword')][1]/node()"/>
               </variable>
-              <apply-templates mode="removeIDs" select="$section"/>
-            </if>
+              <apply-templates mode="tran" select="$filteredOsis"/>
+            </variable>
+            <fb2:section id="{oc:id(@osisID)}.note">
+              <!-- no title for notes (or TOC blows up!) -->
+              <sequence select="
+                oo:fb2SectionContent(me:formattedNote($keyword, $body))"/>
+            </fb2:section>
           </for-each>
           <!-- regular notes -->
           <for-each select="$inputOSIS//note">
-            <variable name="content" as="node()*">
-              <fb2:p>
-                <fb2:strong>
-                  <call-template name="getFootnoteSymbol">
-                    <with-param name="parentName" select="'x'"/>
-                  </call-template>
-                </fb2:strong>
-                <text> </text>
-                <!-- notes here cannot contain paragraphs, or FB2 schema is
-                violated and popups won't work right. -->
-                <variable name="removeParagraphs" as="node()*">
-                  <apply-templates mode="tran"/>
-                </variable>
-                <apply-templates mode="removeParagraphs"
-                    select="$removeParagraphs"/>
-              </fb2:p>
+            <variable name="symbol">
+              <call-template name="getFootnoteSymbol">
+                <with-param name="parentName" select="'x'"/>
+              </call-template>
             </variable>
-            <if test="$content">
-              <fb2:section id="{oc:id(@osisID)}">
-                <sequence select="oo:fb2SectionContent($content)"/>
-              </fb2:section>
-            </if>
+            <variable name="body" as="node()*">
+              <apply-templates mode="tran"/>
+            </variable>
+            <fb2:section id="{oc:id(@osisID)}">
+              <!-- no title for notes (or TOC blows up!) -->
+              <sequence select="
+                oo:fb2SectionContent(me:formattedNote($symbol, $body))"/>
+            </fb2:section>
           </for-each>
           <!-- FullResourceURL note -->
           <if test="
-            $FullResourceURL and
-            $FullResourceURL != 'false' and
-            boolean($inputOSIS//reference[@subType='x-other-resource'])">
+              $EnableFB2FullResourceURL and
+              $FullResourceURL and
+              $FullResourceURL != 'false' and
+              boolean($inputOSIS//reference[@subType='x-other-resource'])">
             <fb2:section id="fullResourceURL">
               <fb2:p>
                 <fb2:strong>
@@ -281,13 +273,24 @@
     </element>
   </template>
 
-  <template mode="removeIDs removeParagraphs" match="node()|@*">
+  <!-- Identity template for many modes -->
+  <template mode="
+      removeDivsFB2
+      sectionsFB2
+      postprocessFB2
+      filterOsisGlossNoteBody
+      formattedBody"
+      match="node()|@*">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
-  <template mode="removeIDs" match="@id[not(parent::fb2:section)]"/>
-  <template mode="removeParagraphs" match="fb2:p">
-    <apply-templates mode="#current"/>
-  </template>
+
+  <!-- Glossary note body filter mode -->
+  <template mode="filterOsisGlossNoteBody" match="title[
+      @subType=('x-glossary-scope', 'x-glossary-title')
+    ]"/>
+  <template mode="filterOsisGlossNoteBody" match="seg[@type='keyword']"/>
+  <template mode="filterOsisGlossNoteBody" match="
+    p[child::seg[@type='keyword']][not(child::text())]"/>
 
   <!-- An fb2:section parent must be body or section, and its siblings must
   also be section elements. OSIS chapter, keyword and TOC milestone elements
@@ -309,10 +312,6 @@
   -->
 
   <!-- mode removeDivsFB2 -->
-
-  <template mode="removeDivsFB2 sectionsFB2 postprocessFB2" match="node()|@*">
-    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
-  </template>
 
   <template mode="removeDivsFB2" priority="1" match="div[starts-with(@type, 'x-keyword')]">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
@@ -454,6 +453,95 @@ it far too large!
     </variable>
     <value-of select="concat(string-join($instructions, ''), $ntitle)"/>
   </function>
+
+<!-- Since note popups might only show the first p, the first p should not be
+just a heading. So if the body starts with a paragraph, insert the heading
+into the beginning of that paragraph, otherwise create a paragraph containing
+the heading and the following body nodes up to the firstNoParaChild element.
+Or if there is no firstNoParaChild element, then create a p containing the
+heading and all body nodes. -->
+  <function name="me:formattedNote" as="node()*">
+    <param name="heading" as="node()*"/>
+    <param name="body" as="node()*"/>
+    <variable name="formattedHead" as="element(fb2:strong)">
+      <fb2:strong><sequence select="$heading"/></fb2:strong>
+    </variable>
+    <variable name="formattedBody">
+      <fb2:tmp>
+        <apply-templates mode="formattedBody" select="$body"/>
+      </fb2:tmp>
+    </variable>
+    <variable name="separator" select="
+      if (matches(
+          string($formattedBody),
+          oc:uniregex('^\s*[\p{gc=L}\p{gc=N}]')
+        ))
+      then ' - '
+      else ' '"/>
+    <variable name="firstP" as="element(fb2:p)?" select="
+      $formattedBody/fb2:tmp/fb2:p[1]"/>
+    <variable name="firstNode" as="node()?" select="
+      $formattedBody/fb2:tmp/node()
+      [not(self::text()[not(normalize-space())])]
+      [1]"/>
+    <variable name="firstNoParaChild" as="element()?" select="
+      $formattedBody/fb2:tmp/*[
+        not(local-name() = (
+          'strong',
+          'emphasis',
+          'style',
+          'a',
+          'strikethrough',
+          'sub',
+          'sup',
+          'code',
+          'image'
+        ))
+      ][1]"/>
+    <choose>
+      <when test="$firstP and $firstP is $firstNode">
+        <for-each select="$firstP">
+          <copy>
+            <copy-of select="@*"/>
+            <sequence select="$formattedHead"/>
+            <sequence select="$separator"/>
+            <copy-of select="node()"/>
+          </copy>
+        </for-each>
+        <sequence select="$formattedBody/fb2:tmp/node()[not(. is $firstP)]"/>
+      </when>
+      <when test="$firstNoParaChild">
+        <fb2:p>
+          <sequence select="$formattedHead"/>
+          <sequence select="$separator"/>
+          <sequence select="
+            $formattedBody/fb2:tmp/node()[. &#60;&#60; $firstNoParaChild]"/>
+        </fb2:p>
+        <sequence select="
+          $formattedBody/fb2:tmp/node()[
+            . is $firstNoParaChild or
+            . &#62;&#62; $firstNoParaChild
+          ]"/>
+      </when>
+      <otherwise>
+        <fb2:p>
+          <sequence select="$formattedHead"/>
+          <sequence select="$separator"/>
+          <sequence select="$formattedBody/fb2:tmp/node()"/>
+        </fb2:p>
+      </otherwise>
+    </choose>
+  </function>
+  <!-- Drop nodes without text unless they are image etc. -->
+  <template mode="formattedBody" priority="1" match="*">
+    <if test="
+        normalize-space(string()) or
+        descendant-or-self::*[
+          local-name() = ('image', 'tmpOsisID', 'empty-line')
+        ]">
+      <next-match/>
+    </if>
+  </template>
 
   <function name="me:sections">
     <param name="children" as="node()*"/>
