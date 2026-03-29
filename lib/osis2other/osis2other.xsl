@@ -1519,7 +1519,7 @@
                                 transChange">
     <choose>
       <when test="$target = 'html'">
-         <html:span>
+        <html:span>
           <call-template name="classedContent"/>
         </html:span>
       </when>
@@ -1936,7 +1936,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         those. Also expel page-breaks. -->
         <sequence select="oc:expelElements(
             $p,
-            $p//*[
+            $p/descendant::*[
                 matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or
                 matches(local-name(), '^h\d')
               ],
@@ -2363,11 +2363,9 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
 
   <template name="classedContent">
     <param name="parentName" select="''" as="xs:string"/>
-
     <variable name="content" as="node()*">
       <apply-templates mode="#current"/>
     </variable>
-
     <sequence select="oo:getClassedContent(., $parentName, $content, '')"/>
   </template>
 
@@ -2553,21 +2551,74 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       </when>
       <when test="$target = 'fb2'">
         <choose>
+          <when test="$parentName = 'x'">
+            <!-- x insures unstyled always -->
+            <sequence select="$content"/>
+          </when>
+          <when test="
+              $EnableFB2CSS and
+              matches($parentName, '^(p|v|subtitle|table|text\-author)$')">
+            <if test="$class"><attribute name="style" select="$class"/></if>
+            <sequence select="$content"/>
+          </when>
           <when test="$EnableFB2CSS and $class">
+            <fb2:style>
+              <attribute name="name" select="$class"/>
+              <sequence select="$content"/>
+            </fb2:style>
+          </when>
+          <when test="
+              not($EnableFB2CSS) and
+              (
+                not($parentName) or
+                matches($parentName, '^(p|v|subtitle|text\-author)$')
+              )">
+            <!-- Unimplemented OSIS hi type: small-caps -->
             <choose>
-              <when test="$parentName = ('a', 'x')">
-                <!-- FB2 schema disallows styling of a elements. -->
-                <sequence select="$content"/>
+              <when test="matches(
+                    concat(' ', $class, ' '),
+                    ' (bold) ',
+                    'i'
+                  )">
+                <fb2:strong><sequence select="$content"/></fb2:strong>
               </when>
-              <when test="matches($parentName, '^(p|v|subtitle|table|text\-author)$')">
-                <attribute name="style" select="$class"/>
-                <sequence select="$content"/>
+              <when test="matches(
+                    concat(' ', $class, ' '),
+                    ' (italic|emphasis|osis\-(rdg|catchWord|foreign)) ',
+                    'i'
+                  )">
+                <fb2:emphasis><sequence select="$content"/></fb2:emphasis>
+              </when>
+              <when test="matches(
+                    concat(' ', $class, ' '),
+                    ' (line\-through) ',
+                    'i'
+                  )">
+                <fb2:strikethrough><sequence select="$content"/></fb2:strikethrough>
+              </when>
+              <when test="matches(
+                    concat(' ', $class, ' '),
+                    ' (sub) ',
+                    'i'
+                  )">
+                <fb2:sub><sequence select="$content"/></fb2:sub>
+              </when>
+              <when test="matches(
+                    concat(' ', $class, ' '),
+                    ' (super) ',
+                    'i'
+                  )">
+                <fb2:sup><sequence select="$content"/></fb2:sup>
+              </when>
+              <when test="matches(
+                    concat(' ', $class, ' '),
+                    ' (acrostic|underline|illuminated|osis\-signed) ',
+                    'i'
+                  )">
+                <fb2:code><sequence select="$content"/></fb2:code>
               </when>
               <otherwise>
-                <fb2:style>
-                  <attribute name="name" select="$class"/>
-                  <sequence select="$content"/>
-                </fb2:style>
+                <sequence select="$content"/>
               </otherwise>
             </choose>
           </when>

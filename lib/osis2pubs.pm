@@ -1335,13 +1335,17 @@ sub makeEbook {
 
   # Run Calibre's ebook-convert, using a temporary log file to reduce main log size
   my $mylog = "$TMPDIR/LOG_$pubName.$format.txt";
-
   my $cmd;
   # FB2 has its own XSLT transform whereas others use Calibre.
   if ($format eq 'fb2') {
     my @cssFiles;
     my %params = (
       'css' => join(',', @cssFiles),
+      'keywords' => &conf('ProjectType') . " " . &conf('Lang'),
+      'date' => '', # would be actual print publication date
+      'year' => '', # would be the print publication year
+      'translator' => '', # would be the translator for the FB2 book
+      'fb2publisher' => '', # would be creator of the FB2 file
     );
     $cmd = "saxonb-xslt -l -ext:on";
     $cmd .= " -xsl:" . &escfile("$SCRD/lib/osis2other/osis2fb2.xsl");
@@ -1428,7 +1432,7 @@ sub makeEbook {
       } else {
         &Note("FB2 validates!: \"$out\"");
       }
-      &shell("zip '$out.zip' '$out'", 1);
+      &shell("zip -j '$out.zip' '$out'", 1);
       $out = "$out.zip";
     }
     my @outdirs;

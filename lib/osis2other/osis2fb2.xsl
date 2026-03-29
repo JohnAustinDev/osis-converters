@@ -22,6 +22,16 @@
 
   <import href="./osis2other.xsl"/>
 
+  <param name="keywords"/>
+
+  <param name="date"/>
+
+  <param name="year"/>
+
+  <param name="translator"/>
+
+  <param name="fb2publisher"/>
+
   <variable name="target" select="'fb2'"/>
 
   <variable name="EnableFB2CSS" select="false()"/>
@@ -129,10 +139,13 @@
     <param name="preprocessedRefOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
 
-
     <variable name="glossNotes" select="
-      $inputOSIS//reference[oo:isGlossaryNote(.)]/
-      oo:targetElement(@osisRef, $inputOSIS)[self::seg[@type='keyword']]/."/>
+      $inputOSIS/descendant::reference[oo:isGlossaryNote(.)]/
+      oo:targetElement(@osisRef, $inputOSIS)[self::seg[@type='keyword']]"/>
+
+    <variable name="isbn" select="
+      $inputOSIS[1]/descendant::work[@osisWork = $MAINMOD][1]/
+      identifier[@type='ISBN'][1]/text()"/>
 
     <element name="FictionBook"
       namespace="http://www.gribuser.ru/xml/fictionbook/2.0">
@@ -159,38 +172,60 @@
           <author>
             <first-name></first-name>
             <last-name>
-              <xsl:sequence select="oc:locConf('CopyrightHolder', 'ru', .)"/>
+              <xsl:value-of select="oc:locConf('CopyrightHolder', 'ru', .)"/>
             </last-name>
           </author>
           <book-title>
-            <xsl:sequence select="oc:locConf('TranslationTitle', 'ru', .)"/>
+            <xsl:value-of select="oc:locConf('TranslationTitle', 'ru', .)"/>
           </book-title>
+          <xsl:if test="$keywords">
+            <keywords><xsl:value-of select="$keywords"/></keywords>
+          </xsl:if>
+          <xsl:if test="$date">
+            <date><xsl:value-of select="$date"/></date>
+          </xsl:if>
+          <coverpage><image xlink:href="#cover.jpg"/></coverpage>
           <lang>
-            <xsl:sequence select="
-              replace(oc:locConf('Lang', 'ru', .), '-.*$', '')"/>
+            <xsl:value-of select="
+              replace(oc:locConf('Lang', 'en', .), '-.*$', '')"/>
           </lang>
+          <xsl:if test="$translator">
+            <translator><xsl:value-of select="$translator"/></translator>
+          </xsl:if>
         </title-info>
         <document-info>
           <author>
             <first-name></first-name>
             <last-name>
-              <xsl:sequence select="oc:locConf('CopyrightHolder', 'ru', .)"/>
+              <xsl:value-of select="oc:locConf('CopyrightHolder', 'ru', .)"/>
             </last-name>
           </author>
           <program-used>osis-converters</program-used>
-          <date><xsl:sequence select="current-date()"/></date>
-          <id><xsl:sequence select="generate-id()"/></id>
+          <date><xsl:value-of select="current-date()"/></date>
+          <id><xsl:value-of select="generate-id()"/></id>
           <version>
             <!-- The FB2 schema requires version to be xs:float -->
-            <xsl:sequence select="replace(
+            <xsl:value-of select="replace(
                 oc:locConf('Version', 'ru', .), '^(\d+\.\d+).*?$', '$1'
               )"/>
           </version>
+          <xsl:if test="$fb2publisher">
+            <publisher><xsl:value-of select="$fb2publisher"/></publisher>
+          </xsl:if>
         </document-info>
         <publish-info>
-            <publisher>
-              <xsl:sequence select="oc:locConf('CopyrightHolder', 'ru', .)"/>
-            </publisher>
+          <book-name>
+            <xsl:value-of select="oc:locConf('TranslationTitle', 'ru', .)"/>
+          </book-name>
+          <publisher>
+            <xsl:value-of select="oc:locConf('CopyrightHolder', 'ru', .)"/>
+          </publisher>
+          <xsl:if test="$year">
+            <year><xsl:value-of select="$year"/></year>
+          </xsl:if>
+          <xsl:if test="$isbn">
+            <isbn><xsl:value-of select="$isbn"/></isbn>
+          </xsl:if>
         </publish-info>
       </description>
 
@@ -200,11 +235,8 @@
         </for-each>
       </fb2:body>
 
-      <if test="$inputOSIS//note or $glossNotes">
+      <if test="$inputOSIS/descendant::note or $glossNotes">
         <fb2:body name="notes">
-          <fb2:title>
-            <fb2:p>Notes</fb2:p>
-          </fb2:title>
           <!-- glossary keywords as notes (included also in TOC) -->
           <for-each select="$glossNotes">
             <variable name="keyword" as="node()*" select="text()"/>
@@ -223,7 +255,7 @@
             </fb2:section>
           </for-each>
           <!-- regular notes -->
-          <for-each select="$inputOSIS//note">
+          <for-each select="$inputOSIS/descendant::note">
             <variable name="symbol">
               <call-template name="getFootnoteSymbol">
                 <with-param name="parentName" select="'x'"/>
@@ -243,7 +275,9 @@
               $EnableFB2FullResourceURL and
               $FullResourceURL and
               $FullResourceURL != 'false' and
-              boolean($inputOSIS//reference[@subType='x-other-resource'])">
+              boolean(
+                $inputOSIS/descendant::reference[@subType='x-other-resource']
+              )">
             <fb2:section id="fullResourceURL">
               <fb2:p>
                 <fb2:strong>
@@ -259,7 +293,8 @@
         </fb2:body>
       </if>
 
-      <for-each select="distinct-values($inputOSIS//figure/@src)">
+      <for-each select="
+        distinct-values(('cover.jpg', $inputOSIS/descendant::figure/@src))">
         <variable name="type" select="
           if (ends-with(lower-case(.), 'jpg'))
           then 'jpeg'
@@ -335,7 +370,7 @@
       milestone[@type=concat('x-usfm-toc', $TOC)]">
     <variable name="tocElement" select="
       if (self::div[starts-with(@type, 'x-keyword')])
-      then .//seg[@type='keyword'][1]
+      then descendant::seg[@type='keyword'][1]
       else ."/>
     <variable name="instructions" select="oo:getTocInstructions($tocElement)"/>
     <variable name="level" select="oo:getTocLevel($tocElement)"/>
@@ -567,7 +602,12 @@ heading and all body nodes. -->
           <choose>
             <when test="
                 current()[not(@sectionLevelFB2)] and
-                not(current-group()//text()[normalize-space()])">
+                not(current-group()/
+                  descendant-or-self::*[local-name() = ('figure', 'lb')]
+                ) and
+                not(current-group()/
+                  descendant-or-self::text()[normalize-space()]
+                )">
               <!-- without text content, this should render to nothing as FB2 -->
               <sequence select="me:sections(current-group(), $level + 1)"/>
             </when>
