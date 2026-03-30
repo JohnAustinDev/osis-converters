@@ -250,8 +250,9 @@
             </variable>
             <fb2:section id="{oc:id(@osisID)}.note">
               <!-- no title for notes (or TOC blows up!) -->
-              <sequence select="
-                oo:fb2SectionContent(me:formattedNote($keyword, $body))"/>
+              <sequence select="oo:fb2SectionContent(me:formattedNote(
+                  $keyword, true(), $body
+                ))"/>
             </fb2:section>
           </for-each>
           <!-- regular notes -->
@@ -267,7 +268,9 @@
             <fb2:section id="{oc:id(@osisID)}">
               <!-- no title for notes (or TOC blows up!) -->
               <sequence select="
-                oo:fb2SectionContent(me:formattedNote($symbol, $body))"/>
+                oo:fb2SectionContent(me:formattedNote(
+                    $symbol, false(), $body
+                  ))"/>
             </fb2:section>
           </for-each>
           <!-- FullResourceURL note -->
@@ -497,6 +500,7 @@ Or if there is no firstNoParaChild element, then create a p containing the
 heading and all body nodes. -->
   <function name="me:formattedNote" as="node()*">
     <param name="heading" as="node()*"/>
+    <param name="useSeparator" as="xs:boolean"/>
     <param name="body" as="node()*"/>
     <variable name="formattedHead" as="element(fb2:strong)">
       <fb2:strong><sequence select="$heading"/></fb2:strong>
@@ -507,7 +511,7 @@ heading and all body nodes. -->
       </fb2:tmp>
     </variable>
     <variable name="separator" select="
-      if (matches(
+      if ($useSeparator and matches(
           string($formattedBody),
           oc:uniregex('^\s*[\p{gc=L}\p{gc=N}]')
         ))
@@ -577,6 +581,10 @@ heading and all body nodes. -->
       <next-match/>
     </if>
   </template>
+  <!-- The id attribute causes FBReader for Linux to show footnotes as empty,
+  and id is totally unnecessary in footnote bodies, which never contain link
+  targets. -->
+  <template mode="formattedBody" match="@id"/>
 
   <function name="me:sections">
     <param name="children" as="node()*"/>

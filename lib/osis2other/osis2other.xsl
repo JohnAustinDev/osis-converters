@@ -1481,6 +1481,7 @@
           </if>
           <apply-templates mode="tran"/>
         </variable>
+        <fb2:empty-line/>
         <fb2:subtitle>
           <sequence select="oo:getClassedContent(., 'subtitle', $content, '')"/>
         </fb2:subtitle>
@@ -1501,6 +1502,7 @@
         </html:h2>
       </when>
       <when test="$target = 'fb2'">
+        <fb2:empty-line/>
         <fb2:subtitle>
           <call-template name="classedContent">
             <with-param name="parentName" select="'subtitle'"/>
@@ -1603,6 +1605,7 @@
             <!-- already output in list template -->
           </when>
           <otherwise>
+            <fb2:empty-line/>
             <fb2:subtitle>
               <call-template name="classedContent">
                 <with-param name="parentName" select="'subtitle'"/>
@@ -1754,6 +1757,7 @@
         </variable>
         <variable name="class" select="oc:getClasses(.)"/>
         <if test="$content[1][self::head]">
+          <fb2:empty-line/>
           <fb2:subtitle>
             <sequence select="
               oo:getClassedContent((), 'subtitle', $content[1], '')"/>
