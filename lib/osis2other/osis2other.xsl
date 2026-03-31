@@ -2675,17 +2675,20 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   </function>
 
   <function name="oo:fb2SectionContent" as="element()+">
-    <param name="content" as="node()*"/>
+    <param name="fb2Content" as="node()*"/>
     <!-- FB2 schema requires pType content after a section title. -->
     <choose>
       <when test="
-          $content[descendant-or-self::text()[normalize-space()]] or
-          $content[
+          $fb2Content[descendant-or-self::text()[normalize-space()]] or
+          $fb2Content[
             descendant-or-self::*[local-name() = ('image', 'empty-line')]
           ]">
+        <variable name="doc">
+          <fb2:tmp><sequence select="$fb2Content"/></fb2:tmp>
+        </variable>
         <!-- FB2 schema also requires that all section children only be
         particular elements. -->
-        <for-each select="$content">
+        <for-each select="$doc/fb2:tmp/node()">
           <choose>
             <when test="
                 self::fb2:section or
@@ -2698,6 +2701,22 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
                 self::fb2:image or
                 self::fb2:tmpOsisID">
               <sequence select="."/>
+              <!-- If an image is first, it cannot be followed by another image
+              according to the schema, but once it's followed by a non-image,
+              there is no longer any restriction on max number of consecutive
+              images. -->
+              <if test="
+                  self::fb2:image and
+                  not(preceding-sibling::*[local-name() = (
+                      'p', 'poem', 'subtitle', 'cite',
+                      'empty-line', 'table', 'image'
+                    )]) and
+                  following-sibling::*[local-name() = (
+                      'p', 'poem', 'subtitle', 'cite',
+                      'empty-line', 'table', 'image'
+                    )][1][self::fb2:image]">
+                <fb2:empty-line/>
+              </if>
             </when>
             <when test="
                 normalize-space(string(.)) or
@@ -2712,8 +2731,8 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         </for-each>
       </when>
       <otherwise>
-        <fb2:p id="{concat('p.6.', generate-id($content[1]))}">
-          <sequence select="$content[descendant-or-self::fb2:tmpOsisID]"/>
+        <fb2:p id="{concat('p.6.', generate-id($fb2Content[1]))}">
+          <sequence select="$fb2Content[descendant-or-self::fb2:tmpOsisID]"/>
         </fb2:p>
       </otherwise>
     </choose>
