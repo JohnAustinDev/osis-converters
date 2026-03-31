@@ -1234,40 +1234,65 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <variable name="fullPath" select="concat(replace($DOCDIR, '^file:', ''), $relPath)"/>
     <message>JAVA: <value-of select="runtime:exec(runtime:getRuntime(), ($readBinaryResource, $fullPath), $envp, $runtimeDir)"/>: Read <value-of select="$fullPath"/></message>
     <call-template name="sleep"/>
-    <if test="not(unparsed-text-available($tmpResult))"><call-template name="sleep"><with-param name="ms" select="100"/></call-template></if>
-    <if test="not(unparsed-text-available($tmpResult))"><call-template name="sleep"><with-param name="ms" select="1000"/></call-template></if>
-    <if test="not(unparsed-text-available($tmpResult))"><call-template name="sleep"><with-param name="ms" select="10000"/></call-template></if>
-    <if test="not(unparsed-text-available($tmpResult))">
-      <call-template name="Error"><with-param name="msg" select="concat('Could not read: ', $tmpResult)"/></call-template>
+    <if test="not(oc:binaryResult($fullPath, $tmpResult))">
+      <message>Waiting 1000ms for output file: <value-of select="$tmpResult"/></message>
+      <call-template name="sleep"><with-param name="ms" select="1000"/></call-template>
     </if>
-    <variable name="result">
-      <if test="unparsed-text-available($tmpResult)"><value-of select="unparsed-text($tmpResult)"/></if>
-    </variable>
+    <if test="not(oc:binaryResult($fullPath, $tmpResult))">
+      <message>Waiting 15000ms for output file: <value-of select="$tmpResult"/></message>
+      <call-template name="sleep"><with-param name="ms" select="15000"/></call-template>
+    </if>
+    <variable name="binaryResult" select="oc:binaryResult($fullPath, $tmpResult)"/>
     <choose>
-      <when test="starts-with($result, 'noFILE')">
-        <call-template name="Error"><with-param name="msg" select="concat('Could not read: ', $fullPath)"/></call-template>
+      <when test="not($binaryResult)">
+        <call-template name="Error"><with-param name="msg" select="concat('Binary result took too long (>15s) moving on...: ', $tmpResult)"/></call-template>
+        <value-of select="''"/>
+      </when>
+      <when test="$binaryResult = 'noFILE'">
+        <call-template name="Error"><with-param name="msg" select="concat('File not found: ', $fullPath)"/></call-template>
         <value-of select="''"/>
       </when>
       <otherwise>
-        <value-of select="$result"/>
+        <value-of select="$binaryResult"/>
       </otherwise>
+    </choose>
+  </function>
+  <function name="oc:binaryResult" as="xs:string">
+    <param name="fullPath" as="xs:string"/>
+    <param name="tmpResult" as="xs:string"/>
+    <choose>
+      <when test="unparsed-text-available($tmpResult)">
+        <variable name="r" select="unparsed-text($tmpResult)"/>
+        <variable name="msg" select="tokenize($r, '&#xa;')[1]"/>
+        <variable name="bin" select="tokenize($r, '&#xa;')[2]"/>
+        <variable name="done" select="tokenize($r, '&#xa;')[3]"/>
+        <value-of select="
+          if (starts-with($msg, 'noFILE'))
+          then 'noFILE'
+          else if ($msg = $fullPath and $done = 'doneFILE')
+          then $bin
+          else ''"/>
+      </when>
+      <otherwise><value-of select="''"/></otherwise>
     </choose>
   </function>
   <template name="oc:prepareRunTime">
     <result-document href="{$readBinaryResource}" method="text">#!/bin/bash
-rm -r <value-of select="$tmpResult"/>
-touch <value-of select="$tmpResult"/>
+touch '<value-of select="$tmpResult"/>'
 if [[ ! -z $1 &amp;&amp; -s $1 ]]; then
-  base64 $1 &#62; <value-of select="$tmpResult"/>
+  echo "$1" &#62; '<value-of select="$tmpResult"/>'
+  base64 -w 0 "$1" &#62;&#62; '<value-of select="$tmpResult"/>'
+  echo &#62;&#62; '<value-of select="$tmpResult"/>'
+  echo doneFILE &#62;&#62; '<value-of select="$tmpResult"/>'
 else
-  echo noFILE &#62; <value-of select="$tmpResult"/>
+  echo noFILE &#62; '<value-of select="$tmpResult"/>'
 fi
     </result-document>
     <message>JAVA: <value-of select="runtime:exec(runtime:getRuntime(), ('chmod', '+x', $readBinaryResource), $envp, $runtimeDir)"/>: Write runtime executable</message>
   </template>
   <template name="oc:cleanupRunTime">
     <message>JAVA: <value-of select="runtime:exec(runtime:getRuntime(), ('rm', $readBinaryResource), $envp, $runtimeDir)"/>: Delete runtime executable</message>
-    <message>JAVA: <value-of select="runtime:exec(runtime:getRuntime(), ('rm', '-r', $tmpResult), $envp, $runtimeDir)"/>: Delete tmpResult</message>
+    <message>JAVA: <value-of select="runtime:exec(runtime:getRuntime(), ('rm', $tmpResult), $envp, $runtimeDir)"/>: Delete tmpResult</message>
   </template>
   <template name="sleep" xmlns:thread="java.lang.Thread">
     <param name="ms" select="10" as="xs:integer"/>
