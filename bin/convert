@@ -686,12 +686,23 @@ my $KEY = 0;
 my $PAUSED = 0;
 my $KILLED = 0;
 my @THREADS;
-while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
-          $KEY != 27
-      ) { # 27 is ESC key
+while (
+  ( &working(\@STARTED, \%DONE) || @RUN ) &&
+  $KEY != 27
+) { # 27 is ESC key
 
   $KEY = 0; # clear if set by inner while loop
-  while ( @RUN && !$PAUSED && $KEY != 27 && &resourcesAvailable(7, '25%', 'convert') ) {
+  while (
+      @RUN &&
+      !$PAUSED &&
+      $KEY != 27 &&
+      &resourcesAvailable(
+        10,    # % free CPU before next start
+        '25%', # free RAM before next start
+        (@STARTED ? 10:1), # average over seconds
+        'convert'
+      )
+  ) {
     # Start another conversion, skipping over any conversion whose
     # dependencies are not done.
     my $x = -1;

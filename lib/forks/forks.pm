@@ -1,24 +1,24 @@
 #!/usr/bin/perl
 # This file is part of "osis-converters".
-# 
+#
 # Copyright 2020 John Austin (gpl.programs.info@gmail.com)
-#     
-# "osis-converters" is free software: you can redistribute it and/or 
-# modify it under the terms of the GNU General Public License as 
-# published by the Free Software Foundation, either version 2 of 
+#
+# "osis-converters" is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 2 of
 # the License, or (at your option) any later version.
-# 
+#
 # "osis-converters" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with "osis-converters".  If not, see 
+# along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
-# Run a Perl function many times as quickly as possible by running in 
-# parallel on separate threads. Perl threads caused core dumps unless 
+# Run a Perl function many times as quickly as possible by running in
+# parallel on separate threads. Perl threads caused core dumps unless
 # started in the root script and consisting of a system function call.
 
 use strict;
@@ -33,13 +33,13 @@ our $LOGFILE      = @ARGV[1]; # Absolute path to log file of main thread
 our $SCRIPT_NAME  = @ARGV[2]; # SCRIPT_NAME for forks.pm conf() context
 my  $forkRequire  = @ARGV[3]; # Absolute path of perl script of caller
 my  $forkFunc     = @ARGV[4]; # Name of the function to run
-my  $forkArgIndex = 5;  # @ARGV[$forkArgIndex+] = Arguments for each 
+my  $forkArgIndex = 5;  # @ARGV[$forkArgIndex+] = Arguments for each
 # call of the function, with the form argN:<value>. While reading the
-# arguments in order, when arg1 or the final argument is encountered, 
-# any last set of arguments will be used to call the function. So each 
+# arguments in order, when arg1 or the final argument is encountered,
+# any last set of arguments will be used to call the function. So each
 # argN will persist for every subsequent call, until it is changed. The
 # only other form allowed is ramkb:N which tells forks.pm how much
-# memory must be available before a fork can be started in parallel. 
+# memory must be available before a fork can be started in parallel.
 # Note: forks.pm always keeps at least one fork running, regardless of
 # CPU or memory availability.
 
@@ -66,7 +66,7 @@ my @forkCall;
 sub saveForkArgs {
   my $callAP = shift;
   my $argvAP = shift;
-  
+
   my (%args, $ram);
   my $x = $forkArgIndex;
   while (defined(@{$argvAP}[$x])) {
@@ -85,7 +85,7 @@ sub pushCall {
   my $aP = shift;
   my $hP = shift;
   my $ram = shift;
-  
+
   if (!defined($hP->{1})) {return;}
 
   my %call = ( 'ramkb' => $ram );
@@ -131,10 +131,15 @@ while ($fatal == 0 && @forkCall) {
       if ($exitStatus != 0) {$fatal = $exitStatus;}
     }));
   $n++;
-  
+
   while (
-    @forkCall && 
-    !resourcesAvailable(7, @forkCall[0]->{'ramkb'}, $forkRequire) && 
+    @forkCall &&
+    !resourcesAvailable(
+        7, # % free CPU before next start
+        @forkCall[0]->{'ramkb'}, # RAM free before next start
+        ($forkRequire && $forkRequire =~ /osis2pubs/ ? 5:1), # sec to average over
+        $forkRequire
+      ) &&
     threads->list(threads::running)
   ) {};
 }
@@ -155,7 +160,7 @@ foreach my $td (@{&forkTmpDirs($caller)}) {
     }
     else {&Log("ERROR: forks.pm cannot open $td/$forkLogName for reading.\n");}
   }
-  
+
   if (-s "$td/LOG_stderr.txt") {
     if (open(MLF, "<:encoding(UTF-8)", "$td/LOG_stderr.txt")) {
       if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
