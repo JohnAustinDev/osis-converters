@@ -1791,15 +1791,14 @@
           $preprocessedRefOSIS,
           $combinedGlossary
         )))"/>
-    <variable name="inlineTOC" as="element()*" select="oo:getElementInlineTOC(
-        ., $preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary
-      )"/>
 
     <!-- [inline_toc_last] writes the inline TOC just before the
     following TOC milestone, even if the following is [no_toc] -->
     <for-each select="preceding::milestone[@type=concat('x-usfm-toc', $TOC)][1]
                       [contains(@n, '[inline_toc_last]')]">
-      <sequence select="$inlineTOC"/>
+      <sequence select="oo:getElementInlineTOC(
+          ., $preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary
+        )"/>
     </for-each>
 
     <choose>
@@ -1822,6 +1821,9 @@
               $combinedGlossary
             )
           else ()"/>
+        <variable name="inlineTOC" as="element()*" select="oo:getElementInlineTOC(
+            ., $preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary
+          )"/>
         <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS
         implementations should have this text de-emphasized since it is not part of the orignal book -->
         <if test="$target = 'html'">

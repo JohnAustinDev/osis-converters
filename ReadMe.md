@@ -377,11 +377,11 @@ SETTING | DESCRIPTION
 **INOSIS** | Process an existing raw OSIS file, by adding header, osisIDs, checking references, etc. Examples: `INOSIS: ./html/html2osis.xsl`
 **Mode[copy]** | Copy the listed file or file glob from the source project to the current project. Files could be images, css, etc. Paths are relative to their project main directory.
 **Mode[script]** | Use the given script to do the conversion. The script path is relative to the project directory. The script needs to take two arguments: input-file and output-file
-**Mode[transcode]** | Use the function `transcode(<string>)` defined in the Perl script whose path is given. Example: `SET_MODE_Transcode: script.pl`
-**Mode[cctable]** | Use a CC table to do the conversion. CC tables are no longer supported by SIL. Use SET_MODE_Script instead.
-**Config\[.+\]** | Set the value of a config entry. The `config.conf` file itself should be converted using `CC: config.conf`. An entry for a particular section can be set using `SET_Config[<section>+<entry>]: <value>`
-**SkipNodesMatching** | Don't convert the text of nodes selected by an xpath expression.
-**SkipStringsMatching** | Don't convert the text of strings matching a Perl regular expression.
+**Mode[transcode]** | Use the function `transcode(<string>)` defined in the Perl script whose path is given. Example: `Mode[transcode]: script.pl`
+**Mode[cctable]** | Use a CC table to do the conversion. CC tables are no longer supported by SIL. Use Mode[script] instead.
+**Config\[.+\]** | Set the value of a config entry. The `config.conf` file itself should be converted using `CC: config.conf`. An entry for a particular section can be set using `Config[<section>+<entry>]: <value>`
+**SkipNodesMatching** | Only applies in Mode[transcode]. Don't convert the text of nodes selected by an xpath expression.
+**SkipStringsMatching** | Only applies in Mode[transcode]. Don't convert the text of strings matching a Perl regular expression.
 
 
 # osis2ebooks 
