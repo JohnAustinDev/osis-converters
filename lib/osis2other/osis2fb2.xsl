@@ -592,21 +592,12 @@ heading and all body nodes. -->
     <choose>
       <when test="$children[@sectionLevelFB2 = $level]">
         <for-each-group select="$children" group-starting-with="*[@sectionLevelFB2 = $level]">
-          <!-- Since section id comes from the first contained toc element,
-          and since a section which has section children will reference the
-          same toc element as its first section child, the id of the parent
-          must get 'parent.' prepended to make it unique. -->
-          <variable name="isParent" select="
-            current-group()[@sectionLevelFB2 = $level + 1]"/>
           <variable name="descOsisID" select="
               current()/descendant-or-self::*[@osisID][1]/@osisID"/>
           <variable name="osisID" select="
-            concat(
-              if ($isParent) then 'parent.' else '',
-              if ($descOsisID)
-                then $descOsisID
-                else concat('unknown.', generate-id(current()))
-            )"/>
+            if ($descOsisID)
+            then $descOsisID
+            else concat('unknown.', generate-id(current()))"/>
           <choose>
             <when test="
                 current()[not(@sectionLevelFB2)] and
@@ -620,7 +611,11 @@ heading and all body nodes. -->
               <sequence select="me:sections(current-group(), $level + 1)"/>
             </when>
             <otherwise>
-              <osis:div type="fb2:section" osisID="{$osisID}" subType="level{$level}">
+              <osis:div
+                  type="fb2:section"
+                  position="{position()}"
+                  osisID="{$osisID}"
+                  subType="level{$level}">
                 <sequence select="me:sections(current-group(), $level + 1)"/>
               </osis:div>
               <if test="current()[not(@sectionLevelFB2)]">

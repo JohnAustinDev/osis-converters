@@ -1216,18 +1216,7 @@
   <!-- #################################################################### -->
 
   <!-- All text nodes are copied -->
-  <template mode="tran" match="text()">
-    <choose>
-      <!-- FB2 sections cannot have text() children, so put them in p. -->
-      <when test="
-          $target = 'fb2' and
-          normalize-space(.) and
-          parent::*[self::div[@type='fb2:section']]">
-        <fb2:p id="{concat('p.1.', generate-id(.))}"><copy/></fb2:p>
-      </when>
-      <otherwise><copy/></otherwise>
-    </choose>
-  </template>
+  <template mode="tran" match="text()"><copy/></template>
 
   <!-- By default, attributes are dropped -->
   <template mode="tran" match="@*"/>
@@ -1301,25 +1290,35 @@
             descendant-or-self::fb2:tmpOsisID
           ]"/>
         <if test="$content">
-          <fb2:section>
-            <if test="@osisID">
-              <attribute name="id" select="oc:id(@osisID)"/>
-            </if>
-            <fb2:title>
-              <fb2:p id="{concat('p.2.', generate-id(.))}">
-                <value-of select="
-                  if ($tocElement)
-                  then oc:titleCase(oo:getTocTitle(oo:origElement(
-                      $tocElement,
-                      $preprocessedMainOSIS,
-                      $preprocessedRefOSIS,
-                      $combinedGlossary
-                    )))
-                  else ''"/>
-              </fb2:p>
-            </fb2:title>
-            <sequence select="oo:fb2SectionContent($content)"/>
-          </fb2:section>
+          <choose>
+            <when test="@position = '1'">
+              <fb2:annotation>
+                <!-- FB2 annotation elements cannot contain images -->
+                <sequence select="oo:fb2SectionContent($content[not(self::fb2:image)])"/>
+              </fb2:annotation>
+            </when>
+            <otherwise>
+              <fb2:section>
+                <if test="@osisID">
+                  <attribute name="id" select="oc:id(@osisID)"/>
+                </if>
+                <fb2:title>
+                  <fb2:p id="{concat('p.2.', generate-id(.))}">
+                    <value-of select="
+                      if ($tocElement)
+                      then oc:titleCase(oo:getTocTitle(oo:origElement(
+                          $tocElement,
+                          $preprocessedMainOSIS,
+                          $preprocessedRefOSIS,
+                          $combinedGlossary
+                        )))
+                      else ''"/>
+                  </fb2:p>
+                </fb2:title>
+                <sequence select="oo:fb2SectionContent($content)"/>
+              </fb2:section>
+            </otherwise>
+          </choose>
         </if>
       </when>
     </choose>
@@ -1648,21 +1647,22 @@
     </choose>
   </template>
 
-  <template mode="tran" match="lb[@type = 'x-hr']">
-    <choose>
-      <when test="$target = 'html'">
-        <html:hr><call-template name="classes"/></html:hr>
-      </when>
-      <!-- FB2 schema limits these: <when test="$target = 'fb2'"><fb2:empty-line/></when>-->
-    </choose>
-  </template>
-
   <template mode="tran" match="lb">
     <choose>
+      <when test="@type = 'x-optional'"/>
+      <when test="$target = 'html' and @type = 'x-hr'">
+        <html:hr><call-template name="classes"/></html:hr>
+      </when>
       <when test="$target = 'html'">
         <html:br><call-template name="classes"/></html:br>
       </when>
-      <!-- FB2 schema limits these: <when test="$target = 'fb2'"><fb2:empty-line/></when>-->
+      <when test="$target = 'fb2'">
+        <!-- empty-line cannot occur in poem (which osis:lg becomes)
+        or some other elements -->
+        <if test="not(ancestor::lg or ancestor::table or ancestor::list)">
+          <fb2:empty-line/>
+        </if>
+      </when>
     </choose>
   </template>
 
@@ -1791,14 +1791,15 @@
           $preprocessedRefOSIS,
           $combinedGlossary
         )))"/>
+    <variable name="inlineTOC" as="element()*" select="oo:getElementInlineTOC(
+        ., $preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary
+      )"/>
 
     <!-- [inline_toc_last] writes the inline TOC just before the
     following TOC milestone, even if the following is [no_toc] -->
     <for-each select="preceding::milestone[@type=concat('x-usfm-toc', $TOC)][1]
                       [contains(@n, '[inline_toc_last]')]">
-      <sequence select="oo:getElementInlineTOC(
-          ., $preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary
-        )"/>
+      <sequence select="$inlineTOC"/>
     </for-each>
 
     <choose>
@@ -1821,9 +1822,6 @@
               $combinedGlossary
             )
           else ()"/>
-        <variable name="inlineTOC" as="element()*" select="oo:getElementInlineTOC(
-            ., $preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary
-          )"/>
         <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS
         implementations should have this text de-emphasized since it is not part of the orignal book -->
         <if test="$target = 'html'">
@@ -1841,11 +1839,8 @@
             <when test="$target = 'html'">
               <html:h1><value-of select="replace($tocTitle, '^(\[[^\]]*\])+', '')"/></html:h1>
             </when>
-            <when test="$target = 'fb2'">
-              <fb2:subtitle>
-                <value-of select="replace($tocTitle, '^(\[[^\]]*\])+', '')"/>
-              </fb2:subtitle>
-            </when>
+            <!-- FB2 title is already output by parent section -->
+            <when test="$target = 'fb2'"/>
           </choose>
         </if>
         <if test="$mainInlineTOC"><sequence select="$mainInlineTOC"/></if>
@@ -2543,12 +2538,17 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   <function name="oo:getClassedContent">
     <param name="context" as="element()?"/>
     <param name="parentName" as="xs:string"/>
-    <param name="content"/>
+    <param name="content0"/>
     <param name="extraClasses" as="xs:string"/>
     <variable name="class" select="
       if ($context)
       then normalize-space(string-join(($extraClasses, oc:getClasses($context)), ' '))
       else normalize-space($extraClasses)"/>
+    <!-- fb2:subtitle cannot contain empty-line elements -->
+    <variable name="content" select="
+      if ($parentName = 'subtitle')
+      then $content0[not(self::fb2:empty-line)]
+      else $content0"/>
     <choose>
       <when test="$target = 'html'">
         <if test="$class">
@@ -2693,16 +2693,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         particular elements. -->
         <for-each select="$doc/fb2:tmp/node()">
           <choose>
-            <when test="
-                self::fb2:section or
-                self::fb2:p or
-                self::fb2:poem or
-                self::fb2:subtitle or
-                self::fb2:cite or
-                self::fb2:empty-line or
-                self::fb2:table or
-                self::fb2:image or
-                self::fb2:tmpOsisID">
+            <when test="oo:okSectionChild(.)">
               <sequence select="."/>
               <!-- If an image is first, it cannot be followed by another image
               according to the schema, but once it's followed by a non-image,
@@ -2721,15 +2712,14 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
                 <fb2:empty-line/>
               </if>
             </when>
-            <when test="
-                normalize-space(string(.)) or
-                descendant-or-self::*[
-                  local-name() = ('image', 'tmpOsisID', 'empty-line')
-                ]">
+            <when test="./preceding-sibling::node()[1][not(oo:okSectionChild(.))]"/>
+            <otherwise>
               <fb2:p id="{concat('p.5.', generate-id(.))}">
-                <sequence select="."/>
+                <sequence select=". | ./following-sibling::node()[
+                  . &#60;&#60; current()/following-sibling::*[oo:okSectionChild(.)][1]
+                ]"/>
               </fb2:p>
-            </when>
+            </otherwise>
           </choose>
         </for-each>
       </when>
@@ -2739,6 +2729,21 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         </fb2:p>
       </otherwise>
     </choose>
+  </function>
+
+  <function name="oo:okSectionChild" as="xs:boolean">
+    <param name="node" as="node()"/>
+    <value-of select="
+      $node[self::fb2:section] or
+      $node[self::fb2:annotation] or
+      $node[self::fb2:p] or
+      $node[self::fb2:poem] or
+      $node[self::fb2:subtitle] or
+      $node[self::fb2:cite] or
+      $node[self::fb2:empty-line] or
+      $node[self::fb2:table] or
+      $node[self::fb2:image] or
+      $node[self::fb2:tmpOsisID]"/>
   </function>
 
   <function name="oo:getFileName" as="xs:string">
