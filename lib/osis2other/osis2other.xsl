@@ -923,8 +923,9 @@
     </choose>
   </function>
 
-  <!-- oo:getTocTitle returns the string title of a tocElement. If an 'n'
-  attribute is present with a title, it will override the default title.
+  <!-- oo:getTocTitle returns the string title of a tocElement (without any
+  prefixed TOC instructions). If an 'n' attribute is present with a title,
+  it will override the default title.
   These are TOC elements (others will Error):
     milestone[@type=concat('x-usfm-toc', $TOC)]
     chapter[@sID]
@@ -952,7 +953,7 @@
       <choose>
         <!-- milestone TOC -->
         <when test="$tocElement0[self::milestone[@type=concat('x-usfm-toc', $TOC)]]">
-          <value-of select="$tocElement/@n"/>
+          <value-of select="$tocTitleEXPLICIT"/>
         </when>
         <!-- chapter TOC -->
         <when test="$tocElement[self::chapter[@sID]]">
@@ -1812,7 +1813,7 @@
       </when>
       <otherwise>
         <!-- If this is the first milestone in a Bible, then first write the main
-        TOC. But FB2 creates its own main inline TOC, so it's not needed for FB2. -->
+        TOC (but FB2 creates its own main inline TOC, so it's not needed for FB2). -->
         <variable name="mainInlineTOC" select="
           if (@isMainTocMilestone = 'true' and $target != 'fb2')
           then oc:getMainInlineTOC(
@@ -1824,28 +1825,33 @@
         <variable name="inlineTOC" as="element()*" select="oo:getElementInlineTOC(
             ., $preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary
           )"/>
-        <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS
-        implementations should have this text de-emphasized since it is not part of the orignal book -->
+
+        <!-- The <div><small> was chosen because milestone TOC text is hidden
+        by CSS, and non-CSS implementations should have this text de-emphasized
+        since it is not part of the orignal book -->
         <if test="$target = 'html'">
           <html:div>
             <sequence select="oo:getTocAttributes(.)"/>
             <html:small>
-              <html:i><value-of select="replace($tocTitle, '^(\[[^\]]*\])+', '')"/></html:i>
+              <html:i><value-of select="$tocTitle"/></html:i>
             </html:small>
           </html:div>
         </if>
+
         <!-- If there is a mainInlineTOC or inlineTOC with this milestone TOC,
         then write out a visible title. -->
         <if test="$mainInlineTOC or $inlineTOC">
           <choose>
             <when test="$target = 'html'">
-              <html:h1><value-of select="replace($tocTitle, '^(\[[^\]]*\])+', '')"/></html:h1>
+              <html:h1><value-of select="$tocTitle"/></html:h1>
             </when>
-            <!-- FB2 title is already output by parent section -->
+            <!-- FB2 milestone toc title already appears as section title -->
             <when test="$target = 'fb2'"/>
           </choose>
         </if>
+
         <if test="$mainInlineTOC"><sequence select="$mainInlineTOC"/></if>
+
         <!-- If a glossary disambiguation title is needed, then write that out. -->
         <if test="
             not($doCombineGlossaries) and
@@ -1860,7 +1866,8 @@
           </variable>
           <apply-templates mode="tran" select="$heading"/>
         </if>
-        <!-- finally output the inline TOC -->
+
+        <!-- Finally output the inline TOC -->
         <if test="not(contains(@n, '[inline_toc_last]'))">
           <sequence select="$inlineTOC"/>
         </if>
