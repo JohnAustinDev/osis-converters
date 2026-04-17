@@ -272,6 +272,12 @@ our %CF_ADDDICTLINKS = (
   },
 );
 
+our %CF_ADDSCRIPREFLINKSMULTI = (
+  'CONTEXT_BOOK' => 1,
+  'WORK_PREFIX' => 1,
+  'FIX' => 1,
+);
+
 our @VERSE_SYSTEMS = ('KJV', 'German', 'KJVA', 'Synodal', 'Leningrad', 'NRSVA', 'Luther', 'Vulg', 'SynodalProt', 'Orthodox', 'LXX', 'NRSV', 'MT', 'Catholic', 'Catholic2');
 
 # OSIS book groups. Taken from wiki.crosswire.org/OSIS_Book_Abbreviations on 11/19/20.

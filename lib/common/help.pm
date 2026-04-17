@@ -35,7 +35,7 @@ our (@VERSE_SYSTEMS, %CF_ADDDICTLINKS, %CONFIG_DEFAULTS,
   @OC_URL_CONFIGS, @OSIS_GROUPS, @SWORD_AUTOGEN_CONFIGS, @SWORD_CONFIGS,
   @SWORD_LOCALIZABLE_CONFIGS, @SWORD_NOT_SUPPORTED, @SWORD_OC_CONFIGS,
   @TOC_INSTRUCTIONS, @VSYS_INSTRUCTIONS, %ID_DIRECTIVES, @CONV_PUB_SETS,
-  @PROJECT_TYPES);
+  @PROJECT_TYPES, %CF_ADDSCRIPREFLINKSMULTI);
 
 # Each script may take 3 kinds of arguments:
 # 'switch' (boolean), 'option' (anything) and 'argument' (file|dir)
@@ -392,7 +392,8 @@ our %HELP = (
   ['CF_addScripRefLinks.txt', [
     ['para', 'Paratext publications typically contain localized scripture references found in cross-reference notes, footnotes, introductions and other reference material. These references are an invaluable study aid. However, they often are unable to function as hyperlinks until converted from localized textual references to standardized universal references. This control file tells the parser how to search the text for textual scripture references, and how to translate them into standardized hyperlinks.' ],
     ['para', 'Descriptions below may refer to extended references. An extended reference is a series of individual scripture references which together form a single sentence. An example of an extended reference is: See also Gen 4:4-6, verses 10-14 and chapter 6. The parser searches the text for extended references, and then parses each reference individually, in order, remembering the book and chapter context of the previous reference.' ],
-    ['list', ['SETTING', 'DESCRIPTION'], &getList([@CF_ADDSCRIPREFLINKS], [
+    ['para', '(multi): These settings may be used multiple times in the control file. All other settings may only be used once, otherwise only the last instance will be effective.' ],
+    ['list', ['SETTING', 'DESCRIPTION'], &addMultiType(&getList([@CF_ADDSCRIPREFLINKS], [
       ['CONTEXT_BOOK', 'Textual references do not always include the book being referred to. Then the target book must be discovered from the context of the reference. Where the automated context search fails to discover the correct book, the `CONTEXT_BOOK` setting should be used. It takes the following form:
       \b`CONTEXT_BOOK: Gen if-xpath ancestor::osis:div[1]`
       \bWhere `Gen` is any osis book abbreviation or the keyword `skip` to skip references that rely on the context book, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then the given value will be used as the context book for that reference.' ],
@@ -431,7 +432,7 @@ our %HELP = (
       ['<osis-abbreviation>', 'To assign a localized book name or abbreviation to the corresponding osis book abbreviation, use the following form:
       \b`Gen = The book of Genesis`
       \bThe osis abbreviation on the left of the equal sign may appear on multiple lines. Each line assigns a localized name or abbreviation on the right to its osis abbreviation on the left. Names on the right are not Perl regular expressions, but they are case insensitive. Listed book names do not need to include any prefixes of `PREFIXES` or suffixes of `SUFFIXES` for the book names to be parsed correctly.' ],
-    ], 1)],
+    ], 1))],
   ]],
 
   ['CF_addFootnoteLinks.txt', [
@@ -1123,6 +1124,19 @@ sub addAttributeType {
     if ($ts) {$rP->[0] .= " ($ts)";}
     if ($ts =~ /x/) {
       &ErrorBug("Missing attribute type $ts: ".join(', ', keys %types), 1);
+    }
+  }
+
+  return $aP;
+}
+
+# Adds the 'multi' type to applicable addScripRefLinks values.
+sub addMultiType {
+  my $aP = shift;
+
+  foreach my $rP (@{$aP}) {
+    if ($CF_ADDSCRIPREFLINKSMULTI{$rP->[0]}) {
+      $rP->[0] .= " (multi)";
     }
   }
 
