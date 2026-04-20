@@ -905,10 +905,23 @@
       <when test="$element[@osisID]
           [ self::milestone[@type=concat('x-usfm-toc', $TOC)] or
             self::seg[@type='keyword'] ]">
-        <variable name="result" as="element()?" select="
-          key('osisID', $element/@osisID, $preprocessedMainOSIS) |
-          key('osisID', $element/@osisID, $preprocessedRefOSIS) |
-          key('osisID', $element/@osisID, $combinedGlossary)"/>
+        <variable name="result" as="element()?">
+          <choose>
+            <when test="
+                $element/ancestor::osisText[1]/@osisIDWork =
+                $preprocessedMainOSIS/descendant-or-self::osisText[1]/@osisIDWork">
+              <sequence select="key('osisID', $element/@osisID, $preprocessedMainOSIS)"/>
+            </when>
+            <when test="
+                $element/ancestor::osisText[1]/@osisIDWork =
+                $preprocessedRefOSIS/descendant-or-self::osisText[1]/@osisIDWork">
+              <sequence select="key('osisID', $element/@osisID, $preprocessedRefOSIS)"/>
+            </when>
+            <otherwise>
+              <sequence select="key('osisID', $element/@osisID, $combinedGlossary)"/>
+            </otherwise>
+          </choose>
+        </variable>
         <if test="
             not($result) and
             not($element/@osisID = 'CombindedGlossary')
