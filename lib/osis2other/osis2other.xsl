@@ -1316,20 +1316,25 @@
                 <if test="@osisID">
                   <attribute name="id" select="oc:id(@osisID)"/>
                 </if>
+                <variable name="title" select="
+                  if ($tocElement)
+                  then oc:titleCase(oo:getTocTitle(oo:origElement(
+                      $tocElement,
+                      $preprocessedMainOSIS,
+                      $preprocessedRefOSIS,
+                      $combinedGlossary
+                    )))
+                  else ''"/>
                 <fb2:title>
                   <fb2:p id="{concat('p.2.', generate-id(.))}">
-                    <value-of select="
-                      if ($tocElement)
-                      then oc:titleCase(oo:getTocTitle(oo:origElement(
-                          $tocElement,
-                          $preprocessedMainOSIS,
-                          $preprocessedRefOSIS,
-                          $combinedGlossary
-                        )))
-                      else ''"/>
+                    <value-of select="$title"/>
                   </fb2:p>
                 </fb2:title>
-                <sequence select="oo:fb2SectionContent($content)"/>
+                <sequence select="oo:fb2SectionContent(
+                    $content[
+                      not(self::fb2:subtitle[1][oc:titleCase(.)=$title])
+                    ]
+                  )"/>
               </fb2:section>
             </otherwise>
           </choose>
