@@ -17,6 +17,8 @@ use File::Spec;
 use XML::LibXML;
 use Data::Dumper;
 
+$Data::Dumper::Sortkeys = 1;
+
 our ($INPD, $MAININPD, $MAINMOD, $DICTMOD, $XML_PARSER, $XPC);
 
 my $termsPromptDirName = 'ai_prompt_terms';
@@ -82,7 +84,14 @@ while (my $row = $csv->getline($fh)) {
 }
 close $fh;
 
+&Log("\n");
+&Note("Configuration:");
+&Log(Dumper($config{'default'}{'links'}) . "\n");
+
 # Update each entry
+my $totalNotContext = 0;
+my $totalCapPronoun = 0;
+my $totalExactTerms = 0;
 foreach my $nameNode ($XPC->findnodes(".//dw:entry/dw:name", $dwf)) {
   my $entry = $nameNode->textContent();
   my $entryNode = $nameNode->parentNode();
@@ -100,18 +109,19 @@ foreach my $nameNode ($XPC->findnodes(".//dw:entry/dw:name", $dwf)) {
       }
     }
     if (@notContext) {
+      $totalNotContext += @notContext;
       if (@context < @notContext) {
         my $val = join(' ', sort @context);
         if ($entryNode->getAttribute('context') ne $val) {
           $entryNode->setAttribute('context', $val);
-          &Log("Added context to $entry: $val\n");
         }
+        &Log("Added context to $entry: $val\n");
       } else {
         my $val = join(' ', sort @notContext);
         if ($entryNode->getAttribute('notContext') ne $val) {
           $entryNode->setAttribute('notContext', $val);
-          &Log("Added notContext to $entry: $val\n");
         }
+        &Log("Added notContext to $entry: $val\n");
       }
     }
   }
@@ -125,8 +135,9 @@ foreach my $nameNode ($XPC->findnodes(".//dw:entry/dw:name", $dwf)) {
       my $t = $matchNode->textContent();
       if ($t =~ s/^(.*?\/[^i\/]*)i([^i\/]*)$/$1$2/) {
         &setTextContent($matchNode, $t);
-        &Log("Enforced capitalization on $entry: $t\n");
       }
+      &Log("Enforced case sensitive proper noun matching on $entry\n");
+      $totalCapPronoun++;
     }
   }
 
@@ -138,11 +149,16 @@ foreach my $nameNode ($XPC->findnodes(".//dw:entry/dw:name", $dwf)) {
       my $t = $matchNode->textContent();
       if ($t =~ s/(?<=\\E)\\S\*(\)?)/$1\\b/g) {
         &setTextContent($matchNode, $t);
-        &Log("Enforced exact term on $entry: $t\n");
+        &Log("Enforced exact term matching on $entry\n");
       }
+      $totalExactTerms++;
     }
   }
 }
+
+&Report("Total number of match contexts skipped: $totalNotContext");
+&Report("Total number of case sensitive proper noun match elements: $totalCapPronoun");
+&Report("Total number of exact term match elements: $totalExactTerms");
 
 # Overwrite CF_addDictLinks.xml with an updated version
 if (open(XML, ">$addDictLinksXML")) {

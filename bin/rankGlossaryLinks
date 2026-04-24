@@ -17,6 +17,8 @@ use File::Spec;
 use XML::LibXML;
 use Data::Dumper;
 
+$Data::Dumper::Sortkeys = 1;
+
 our ($MAININPD, $MAINMOD, $DICTMOD, $XML_PARSER, $XPC);
 
 my $aiPromptLength = &conf('ARG_AiPromptLength') || 100;
@@ -54,6 +56,10 @@ while (my $row = $csv->getline($fh)) {
 }
 close $fh;
 
+&Log("\n");
+&Note("Configuration:");
+&Log(Dumper($config{'default'}) . "\n");
+
 # Determine which terms are high risk and selected them for AI validation
 my %riskyRows; # term => priority
 my $rec = $config{'default'}{'term classes requiring validation'};
@@ -70,16 +76,16 @@ foreach my $e (keys %rows) {
 if (-e glob("$linksPromptDir/*.txt")) {`rm '$linksPromptDir'/*.txt`;}
 if (! -e "$linksPromptDir") {`mkdir '$linksPromptDir'`;}
 if (! -e "$linksCsv") {
-  &shell("echo '\"only link capitalized proper nouns\",\"1\"' > $linksCsv");
-  &shell("echo '\"link exact term if term length less than\",\"4\"' >> $linksCsv");
-  &shell("echo '\"link exact term if link count greater than\",\"400\"' >> $linksCsv");
-  &shell("echo '\"keep link classes\",\"(A|B)\"' >> $linksCsv");
-  &shell("echo '\"A\",\"Excellent\"' >> $linksCsv");
-  &shell("echo '\"B\",\"Good\"' >> $linksCsv");
-  &shell("echo '\"C\",\"Fair\"' >> $linksCsv");
-  &shell("echo '\"D\",\"Poor\"' >> $linksCsv");
-  &shell("echo '\"\",\"\"' >> $linksCsv");
-  &shell("echo '$Columns' >> $linksCsv");
+  &shell("echo '\"only link capitalized proper nouns\",\"1\"' > $linksCsv", 3);
+  &shell("echo '\"link exact term if term length less than\",\"4\"' >> $linksCsv", 3);
+  &shell("echo '\"link exact term if link count greater than\",\"400\"' >> $linksCsv", 3);
+  &shell("echo '\"keep link classes\",\"(A|B)\"' >> $linksCsv", 3);
+  &shell("echo '\"A\",\"Excellent\"' >> $linksCsv", 3);
+  &shell("echo '\"B\",\"Good\"' >> $linksCsv", 3);
+  &shell("echo '\"C\",\"Fair\"' >> $linksCsv", 3);
+  &shell("echo '\"D\",\"Poor\"' >> $linksCsv", 3);
+  &shell("echo '\"\",\"\"' >> $linksCsv", 3);
+  &shell("echo '$Columns' >> $linksCsv", 3);
 }
 
 # Create verse container OSIS file IF it does not exist (this runs SLOW)
@@ -87,7 +93,7 @@ my $mainOutdir = &getModuleOutputDir($MAINMOD);
 my $verseContainerOsis = "$linksPromptDir/${MAINMOD}_vc.xml";
 my $modosis = "$mainOutdir/$MAINMOD.xml";
 if (! -e $verseContainerOsis || -M $verseContainerOsis > -M $modosis) {
-  &shell("saxonb-xslt -l -ext:on -xsl:'$SCRD/lib/bible/containers.xsl' -s:'$modosis' -o:'$verseContainerOsis'");
+  &shell("saxonb-xslt -l -ext:on -xsl:'$SCRD/lib/bible/containers.xsl' -s:'$modosis' -o:'$verseContainerOsis'", 2);
 }
 if (! -e $verseContainerOsis || -M $verseContainerOsis > -M $modosis) {
   &Error("Missing or out-of-date verse container OSIS file: $verseContainerOsis");
@@ -96,31 +102,40 @@ if (! -e $verseContainerOsis || -M $verseContainerOsis > -M $modosis) {
 # Create AI prompts to scrutinize the link contexts of selected terms
 my $dictOutdir = &getModuleOutputDir($DICTMOD);
 my $dictosis = "$dictOutdir/$DICTMOD.xml";
+my $totalRiskyRows = 0;
+my $totalPromptFiles = 0;
+my $totalLinks = 0;
 foreach my $term (
-  sort {$riskyRows{$a} <=> $riskyRows{$b}}
+  sort {$riskyRows{$b}.$b cmp $riskyRows{$a}.$a }
   keys %riskyRows
 ) {
+  $totalRiskyRows++;
   my $hP = &readTerm($term, $dictosis);
   my $entryText = $hP->{'text'};
   my $termID = $hP->{'osisID'};
 
   my $refsAP = &readRefs($termID, $verseContainerOsis);
 
-  my $n = 1;
   my $single = @$refsAP <= $aiPromptLength;
+  my $n = 0;
   while (@$refsAP) {
     my @batch = splice(@$refsAP, 0, $aiPromptLength);
-    my $path = sprintf("%s/%s prompt %s%s.txt",
-      $linksPromptDir,
+    my $filename = sprintf("%s prompt %s%s.txt",
       $riskyRows{$term},
       $term,
-      $single ? '' : '_' . $n . '-' . ($n + @batch - 1)
+      $single ? '' : '_' . ($n + 1) . '-' . ($n + @batch)
     );
+    my $path = "$linksPromptDir/$filename";
     if (-e $path) {&Error("Prompt file exists: $path");}
     writePrompt($entryText, \@batch, $path);
+    $totalPromptFiles++;
+    &Log("Wrote links prompt file with " . @batch . " links: $filename\n");
     $n += @batch;
+    $totalLinks += @batch;
   }
 }
+
+&Report("Output $totalLinks links to $totalRiskyRows terms in $totalPromptFiles prompt files.");
 
 ########################################################################
 ########################################################################

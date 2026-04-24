@@ -26,6 +26,8 @@ my $termsCsv = "$termsPromptDir/$termsCsvName";
 my $Iso = &conf('Lang'); $Iso =~ s/\-\w+$//;
 my $Columns = "\"ISO-639 $Iso term\",\"English gloss\",\"Class\",\"Link count\"";
 
+my $totalPromptFiles = 0;
+my $term = 0;
 if (open(INF, "<:encoding(UTF-8)", "$sfm2osisLog")) {
   my @terms;
   while (<INF>) {
@@ -33,28 +35,32 @@ if (open(INF, "<:encoding(UTF-8)", "$sfm2osisLog")) {
       push(@terms, "$2 ($1)");
     }
   }
-  my $n = 1;
   if (-e glob("$termsPromptDir/*.txt")) {`rm '$termsPromptDir'/*.txt`;}
   if (! -e "$termsPromptDir") {`mkdir '$termsPromptDir'`;}
   if (@terms && ! -e "$termsCsv") {
-    &shell("echo '\"term classes requiring validation\",\"(C|D)\"' > $termsCsv");
-    &shell("echo '\"A\",\"deterministic phrase\"' >> $termsCsv");
-    &shell("echo '\"B\",\"proper name\"' >> $termsCsv");
-    &shell("echo '\"C\",\"domain/technical term\"' >> $termsCsv");
-    &shell("echo '\"D\",\"generic lexical term\"' >> $termsCsv");
-    &shell("echo '\"\",\"\"' >> $termsCsv");
-    &shell("echo '$Columns' >> $termsCsv");
+    &shell("echo '\"term classes requiring validation\",\"(C|D)\"' > $termsCsv", 3);
+    &shell("echo '\"A\",\"deterministic phrase\"' >> $termsCsv", 3);
+    &shell("echo '\"B\",\"proper name\"' >> $termsCsv", 3);
+    &shell("echo '\"C\",\"domain/technical term\"' >> $termsCsv", 3);
+    &shell("echo '\"D\",\"generic lexical term\"' >> $termsCsv", 3);
+    &shell("echo '\"\",\"\"' >> $termsCsv", 3);
+    &shell("echo '$Columns' >> $termsCsv", 3);
   }
   @terms = sort(@terms);
+  &Log("\n");
   while (@terms) {
     my @batch = splice(@terms, 0, $aiPromptLength);
-    my $path = $termsPromptDir . '/prompt_' . $n . '-' . ($n + @batch - 1) . ".txt";
-    writePrompt(\@batch, $path);
-    $n += @batch;
+    my $filename = 'prompt_' . ($term + 1) . '-' . ($term + @batch) . ".txt";
+    &writePrompt(\@batch, "$termsPromptDir/$filename");
+    $totalPromptFiles++;
+    $term += @batch;
+    &Log("Wrote terms prompt file with " . @batch . " terms: $filename\n");
   }
 } else {
   &Error("Could not open $sfm2osisLog.");
 }
+
+&Report("Output $term terms in $totalPromptFiles prompt files.");
 
 ########################################################################
 ########################################################################
