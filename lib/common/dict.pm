@@ -29,7 +29,7 @@ use strict;
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($DEBUG, $XPC, $XML_PARSER, $OSISBOOKSRE, $ADDDICTLINKS_NAMESPACE, $ONS);
 
-our (%LINK_OSISREF, @EXPLICIT_GLOSSARY);
+our (%LINK_OSISREF, %EntryHits, @EXPLICIT_GLOSSARY);
 
 our $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb]";
 
@@ -302,7 +302,7 @@ sub explicitGlossaryIndexes {
       my $report = $r->getAttribute('level1');
 
       if (!$report) {
-        my $infoP = &getIndexInfo($r, 1);
+        my $infoP = &getIndexContext($r, 1);
         if ($infoP) {
           $report = $infoP->{'previousNode'}->data;
           $report =~ s/^.*?(.{32})$/>$1/s;
@@ -340,7 +340,7 @@ everywhere it appears in the text.");
 sub glossaryLink {
   my $i = shift;
 
-  my $infoP = &getIndexInfo($i);
+  my $infoP = &getIndexContext($i);
   if (!defined($infoP)) {return $i;}
 
   my $linktext = $infoP->{'linktext'};
@@ -386,6 +386,7 @@ sub glossaryLink {
     $ref->setAttribute('subType', $infoP->{'x-subType'});
   }
 
+  $EntryHits{$osisRef}++;
   $LINK_OSISREF{$osisRef}{'context'}{@{&atomizeContext(&getNodeContext($ref))}[0]}++;
   $LINK_OSISREF{$osisRef}{'matched'}{$linktext}++;
   $LINK_OSISREF{$osisRef}{'total'}++;
@@ -466,7 +467,7 @@ sub searchGlossaryLinkAtIndex {
 
   my $original = $indexElement->parentNode->textContent;
 
-  my $infoP = &getIndexInfo($indexElement);
+  my $infoP = &getIndexContext($indexElement);
   if (!defined($infoP)) {
     return $indexElement;
   }
@@ -989,18 +990,16 @@ sub logDictLinks {
 
   my $nolink = "";
   my $numnolink = 0;
-  my @entries = $XPC->findnodes('//dw:entry/dw:name/text()', $dwf);
+  my @entries = $XPC->findnodes('//dw:entry/dw:name', $dwf);
   my %entriesH; foreach my $e (@entries) {
-    my @ms = $XPC->findnodes('./ancestor::dw:entry[1]//dw:match', $e);
-    $entriesH{(!@ms || !@ms[0] ? '(no match rules) ':'').$e}++;
+    $entriesH{$e->textContent} = $e->parentNode->getAttribute('osisRef');
   }
   foreach my $e (sort keys %entriesH) {
     my $match = 0;
     foreach my $dh (sort keys %EntryHits) {
-      my $xe = $e; $xe =~ s/^No <match> element(s)\://g;
-      if ($xe eq $dh) {$match = 1;}
+      if ($dh eq $e || $dh eq $entriesH{$e}) {$match = 1;}
     }
-    if (!$match) {$nolink .= $e."\n"; $numnolink++;}
+    if (!$match) {$nolink .= $e . "\n"; $numnolink++;}
   }
 
   &Report("Glossary entries from CF_addDictLinks.xml which have no links in the text: ($numnolink instances)");
@@ -1092,7 +1091,7 @@ text using the match elements found in the CF_addDictLinks.xml file.\n");
 # the Covenant<index type="Glossary"/>". Looking up the preceding
 # word results in the wrong match: 'Covenant', but using context
 # gives the correct match: 'Ark of the Covenant'.
-sub getIndexInfo {
+sub getIndexContext {
   my $i = shift; # an index milestone element
   my $quiet = shift;
 
