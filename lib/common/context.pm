@@ -284,7 +284,13 @@ sub bibleContext {
 
   # get context from most specific osisID
   if ($e) {
-    my $id = $e->getAttribute('osisID'); $id =~ s/^.*\s+//;
+    my $id = $e->getAttribute('osisID');
+    #$id =~ s/^.*\s+//; this was removed because bibleContext() claims to
+    # return 4 part Bible context, and this line defeats that claim in
+    # order to return just the last context verse - likely to accomodate
+    # some other use (but that use needs to accommodate 4 part Bible
+    # context, or else the documentation for bibleContext() needs
+    # to be changed).
     $context = ($id ? $id:"unk.0.0.0");
     if ($id =~ /^\w+$/) {$context .= ".0.0.0";}
     elsif ($id =~ /^\w+\.\d+$/) {$context .= ".0.0";}
