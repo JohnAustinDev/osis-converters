@@ -131,21 +131,20 @@ sub CONV_OUTPUT_FILES {
   return sort keys %u;
 }
 
-# Publication sets output by each conversion: 'tran' is the entire
-# Bible translation, 'subpub' is one of any SUB_PUBLICATIONS, 'tbook'
-# is a single Bible-book publication which is part of the 'tran'
-# publication and 'book' is a single Bible-book publication as a part
-# of a 'subpub' if possible, or else as part of 'tran' otherwise.
+# Limit the output of publication Bible conversions: 'comp' is a compilation
+# Bible publication, 'full' is one of the SUB_PUBLICATIONS otherwise the entire
+# scope if there are no sub-publications. And 'book' is a single Bible-book
+# publication which is part of the Bible scope.
 our %CONV_PUB_SETS = (
-  'sword'   => [ 'tran' ],
-  'gobible' => [ 'tran' ], #  'SimpleChar', 'SizeLimited'
-  'ebooks'  => [ 'tran', 'subpub', 'tbook', 'book' ],
-  'html'    => [ 'tran', 'subpub', 'tbook', 'book' ],
+  'sword'   => [ 'comp' ],
+  'gobible' => [ 'comp' ], #  'SimpleChar', 'SizeLimited'
+  'ebooks'  => [ 'comp', 'full', 'book' ],
+  'html'    => [ 'comp', 'full', 'book' ],
 );
 {
-my %h;
-foreach my $c (keys %CONV_PUB_SETS) {map($h{$_}++, @{$CONV_PUB_SETS{$c}});}
-our @CONV_PUB_SETS = (sort keys %h);
+  my %h;
+  foreach my $c (keys %CONV_PUB_SETS) {map($h{$_}++, @{$CONV_PUB_SETS{$c}});}
+  our @CONV_PUB_SETS = (sort keys %h);
 }
 
 # Executables required for each conversion

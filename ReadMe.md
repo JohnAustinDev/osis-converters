@@ -125,8 +125,8 @@ DIRECTIVE | DESCRIPTION
 **scope (M)** | Marks OSIS div elements with a given scope. This may be used to mark the Pentateuch introduction with `scope == Gen-Deut` for instance, associating it with each of book of the Pentateuch.
 **feature (M)** | Mark OSIS div elements for use with a particular feature. See SPECIAL FEATURES below.
 **cover (M)** | Takes a `( yes \| no )` value. A value of yes marks OSIS div elements to receive a cover image when scope matches an available cover image. Use in conjunction with the scope ID directive.
-**conversion (M)** | Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversions not listed, the OSIS div will be removed. Conversion options are `( none \| ebooks \| html \| sword \| gobible \| book \| subpub \| tbook \| tran)`.
-**not_conversion (M)** | Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ebooks \| html \| sword \| gobible \| CF_addDictLinks \| CF_addDictLinks.bible \| CF_addDictLinks.dict \| book \| subpub \| tbook \| tran)`.
+**conversion (M)** | Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversions not listed, the OSIS div will be removed. Conversion options are `( none \| ebooks \| html \| sword \| gobible \| book \| comp \| full)`.
+**not_conversion (M)** | Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ebooks \| html \| sword \| gobible \| CF_addDictLinks \| CF_addDictLinks.bible \| CF_addDictLinks.dict \| book \| comp \| full)`.
 
 
 ### SPECIAL FEATURES 
@@ -196,9 +196,9 @@ ENTRY | DESCRIPTION
 **IntroductionTitle (L)** | A localized title for Bible book introductions.
 **KeySort** | This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within regular expressions must have an additional backslash before it. NOTE: The regular expression processor currently in use does not support look-around assertions.
 **Lang (W)** | ISO language code and script code. Examples: tkm-Cyrl or tkm-Latn
-**MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
-**MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
-**MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
+**MakeSet[book]** | Select whether or which ePublications to create for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
+**MakeSet[comp]** | When there are sub-publications, this selects whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
+**MakeSet[full]** | Select whether or which ePublications to create for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
 **MakeTypes** | Select which type, or types, of publications to make: `(AUTO \| azw3 \| epub \| fb2 \| zip)`. Default is `AUTO`.
 **NO_FORKS (S)** | Set to `true` to disable the multi-thread fork feature. Doing so may increase conversion time.
 **NormalizeUnicode** | Apply a Unicode normalization to all characters: `(true \| false \| NFD \| NFC \| NFKD \| NFKC \| FCD)`. Default is `false`.
@@ -406,9 +406,9 @@ The following `config.conf` entries control eBook production:
 ENTRY | DESCRIPTION
 ----- | -----------
 **MakeTypes** | Select which type, or types, of publications to make: `(AUTO \| azw3 \| epub \| fb2 \| zip)`. Default is `AUTO`.
-**MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
-**MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
-**MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
+**MakeSet[comp]** | When there are sub-publications, this selects whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
+**MakeSet[full]** | Select whether or which ePublications to create for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
+**MakeSet[book]** | Select whether or which ePublications to create for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
 
 
 # osis2html 

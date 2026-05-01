@@ -75,22 +75,19 @@ sub osis2pubs {
     $fullScope = &getScopeXML($INOSIS_XML, 1);
   }
 
-  my $serverDirsHP = {};
-  if ($EBOOKS =~ /^https?\:\/\//) {
-    $serverDirsHP = &readServerScopes($EBOOKS, $MAINMOD, $convertTo);
+  my $translationTitle = &conf('TranslationTitle');
+  if (!$translationTitle) {
+    $translationTitle = @{$XPC->findnodes(
+        "//osis:header/osis:work[\@osisWork='$MAINMOD']/osis:title",
+        $INOSIS_XML
+      )}[0];
+    $translationTitle = $translationTitle
+      ? $translationTitle->textContent
+      : '';
   }
-
-  my $tranPubTitle = &conf('TranslationTitle');
-  if (!$tranPubTitle) {
-    $tranPubTitle = @{$XPC->findnodes("//osis:header/osis:work
-        [\@osisWork='$MAINMOD']/osis:title", $INOSIS_XML)}[0];
-    $tranPubTitle = ($tranPubTitle ? $tranPubTitle->textContent:'');
+  if (!$translationTitle) {
+    &ErroBug("osis2pubs.pm could not determine compilationPubTitle", 1);
   }
-  if (!$tranPubTitle) {
-    &ErroBug("osis2pubs.pm could not determine tranPubTitle", 1);
-  }
-
-  my $tranPubName = &tranPubFileName($tranPubTitle, $fullScope);
 
   # Use forks.pm to run OSIS_To_ePublication() for a big speed-up
   no strict "refs";
@@ -100,92 +97,69 @@ sub osis2pubs {
   if (&isChildrensBible($INOSIS_XML)) {
     &OSIS_To_ePublication2(
       $convertTo,
-      $tranPubTitle,
+      $translationTitle,
       undef,
       undef,
-      'tran',
-      &childrensBibleFileName($tranPubTitle),
-      $serverDirsHP->{'childrens_bible'}
+      'full',
+      &childrensBibleFileName($translationTitle),
+      ''
     );
   } elsif (&isGenericBook($INOSIS_XML)) {
     &OSIS_To_ePublication2(
       $convertTo,
-      $tranPubTitle,
+      $translationTitle,
       undef,
       undef,
-      'tran',
-      &genericBookFileName($tranPubTitle),
-      $serverDirsHP->{'generic_book'}
+      'full',
+      &genericBookFileName($translationTitle),
+      ''
     );
   }
   else {
 
 # Create Bible ePublications from OSIS files of the MAINMOD and DICTMOD
-# (if one exists). It is assumed that each SUB_PUBLICATIONS has a
-# unique scope (if there are two publications with the same scope, then
-# at least one of them must be published with another publication code,
-# to differentiate the two). However, any book may appear in multiple,
+# (if DICTMOD exists). It is required that each SUB_PUBLICATIONS has a
+# unique scope. However, any book may appear in multiple
 # SUB_PUBLICATIONS as long as the book itself is identical in each one.
-# Always and only the entire OSIS file publication, when created, will
-# be the 'tran' publication, and it is defined as having a scope that
-# is the same as that of the OSIS file.
+# A comp publication meets two requirements: it has a scope that is
+# identical to the OSIS file AND there exists a number of SUB_PUBLICATIONS.
 #
 # PUBLICATIONS
-# 1 tran publication          - Containing all the contents of the OSIS
-#                               files. This publication will always be
-#                               created, unless MakeSet[tran] is set
-#                               to false in config.conf.
+# 0 or 1 comp publication     - Containing all the contents of the OSIS
+#                               files IF there are SUB_PUBLICATIONS and UNLESS
+#                               MakeSet[comp] resolves to false in config.conf.
 #
-# 1 subpub publication        - For each SUB_PUBLICATIONS. Selection
-#                               is controlled by MakeSet[subpub] =
+# 0 or n full publications    - One for each SUB_PUBLICATIONS or, if there are
+#                               no sub-publications, one containing all the
+#                               contents of the OSIS files. Selection
+#                               is controlled by MakeSet[full] =
 #                               (true|false|AUTO|<scope>|first|last)
 #                               in config.conf.
 #
-# 2 or more book publications - For each book of each multi-book
-#                               SUB_PUBLICATIONS. Selection is
+# 0 or n book publications    - One for each individual book in the OSIS file's
+#                               scope UNLESS a comp or full publication has
+#                               exactly the scope of this book. Selection is
 #                               controlled by MakeSet[book] =
 #                               (true|false|AUTO|<OSIS-book>|first|last|all)
-#                               in config.conf. If a sub-publication
-#                               has only one book, no Part publication
-#                               will be produced.
+#                               in config.conf.
 #
-# 0 or more book publications - For each book of a multi-book
-#                               MAINMOD OSIS file which is not part of
-#                               SUB_PUBLICATIONS. Selections are
-#                               controlled by MakeSet[book] =
-#                               (true|false|AUTO|<OSIS-book>|first|last|all)
-#                               in config.conf. If the MAINMOD OSIS file
-#                               contains only one book, no Part pub-
-#                               lication will be produced.
-#
-# PLACEMENT
-# For eBooks, the EBOOKS URL will be scanned for sub-directory names and
-# the scope of files contained therein. Created Full sub-publications
-# and their Part publications will be placed in an output sub-directory
-# having the same name as the EBOOKS URL sub-directory sharing the same
-# scope. The 'tran' publication and any remaining single book publica-
-# tions are not placed in any sub-directory (but in the parent
-# directory).
-#
-# CREATION ORDER
-# Publications are created in the following order:
-# 'tran', 'subpub', 'book' then 'tbook'
-
     # Interperet config.conf settings that control what to create
-    my $createTranPub = &conf('MakeSet[tran]',     undef, undef, $convertTo);
-    &Note("Using MakeSet[tran] = $createTranPub");
+    my $createCompilationPub = &conf('MakeSet[comp]', undef, undef, $convertTo);
+    &Note("Using MakeSet[comp] = $createCompilationPub");
 
-    my $subSelect  = &conf('MakeSet[subpub]',  undef, undef, $convertTo);
-    if ($subSelect =~ /^first$/i) {
-      $subSelect = @SUB_PUBLICATIONS[0];
+    my $fullSelect  = &conf('MakeSet[full]', undef, undef, $convertTo);
+    if ($fullSelect =~ /^first$/i) {
+      $fullSelect = @SUB_PUBLICATIONS[0];
     }
-    elsif ($subSelect =~ /^last$/i)  {
-      $subSelect = @SUB_PUBLICATIONS[$#SUB_PUBLICATIONS];
+    elsif ($fullSelect =~ /^last$/i)  {
+      $fullSelect = @SUB_PUBLICATIONS[$#SUB_PUBLICATIONS];
     }
-    elsif ($subSelect =~ /^true$/i)  {
-      $subSelect = 'all';
+    elsif ($fullSelect =~ /^true$/i)  {
+      $fullSelect = $#SUB_PUBLICATIONS == 0
+        ? @SUB_PUBLICATIONS[0]
+        : 'all';
     }
-    &Note("Using MakeSet[subpub] = $subSelect");
+    &Note("Using MakeSet[full] = $fullSelect");
 
     my $bookSelect = &conf('MakeSet[book]', undef, undef, $convertTo);
     my @bks = @{&scopeToBooks($fullScope, &conf('Versification'))};
@@ -196,38 +170,38 @@ sub osis2pubs {
 
     my %done;
 
-    # Create the tran-publication
-    if ($createTranPub ||
-        $fullScope eq $subSelect ||
+    # Create a single compilation or full publication containing everything.
+    if ($createCompilationPub ||
+        $fullScope eq $fullSelect ||
         $fullScope eq $bookSelect) {
       $forkArgs .= &OSIS_To_ePublication(
-        scalar(@{&scopeToBooks($fullScope, &conf('Versification'))}),
+        scalar(@bks),
         $convertTo,
-        $tranPubTitle,
+        $translationTitle,
         $fullScope,
         $fullScope,
-        'tran',
-        $tranPubName,
+        @SUB_PUBLICATIONS ? 'comp' : 'full',
+        @SUB_PUBLICATIONS
+          ? &compilationPubFileName($translationTitle, $fullScope)
+          : &fullPubFileName($translationTitle, $fullScope),
         ''
       );
     }
     $done{$fullScope}++;
 
+    # Create a full publication for each sub-publication
     foreach my $scope (@SUB_PUBLICATIONS) {
       my $s = $scope; $s =~ s/\s+/_/g;
-      if ($scope eq $fullScope) {next;} # already done and no following error
+      if ($scope eq $fullScope) {next;} # already done, no error
       if ($done{$scope}) {
         &Error(
 "Multiple sub-publications cannot share the same scope: $scope.",
 "All but one of these sub-publications must be published under a different code than $MAINMOD");
         next;
       }
-
       my $title = &conf("SubPublicationTitle[$s]");
-
-      # Create sub-publication
-      if ($subSelect eq 'all' ||
-          $scope eq $subSelect ||
+      if ($fullSelect eq 'all' ||
+          $scope eq $fullSelect ||
           $scope eq $bookSelect) {
         $forkArgs .= &OSIS_To_ePublication(
           scalar(@{&scopeToBooks($scope, &conf('Versification'))}),
@@ -235,35 +209,42 @@ sub osis2pubs {
           $title,
           $scope,
           $scope,
-          'subpub',
-          &subPubFileName($title, $scope),
-          $serverDirsHP->{$scope}
-        );
-
-        # Create sub-publication-books
-        $forkArgs .= &createParts(
-          \%done,
-          'book',
-          $convertTo,
-          $bookSelect,
-          $scope,
-          $title,
-          $serverDirsHP->{$scope}
+          'full',
+          &fullPubFileName($title, $scope),
+          ''
         );
       }
       $done{$scope}++;
     }
 
-    # Create the tran-publication-books
-    $forkArgs .= &createParts(
-      \%done,
-      'tbook',
-      $convertTo,
-      $bookSelect,
-      $fullScope,
-      $tranPubTitle,
-      ''
-    );
+    # Create a book publication for each book of the full scope.
+    foreach my $book (@bks) {
+      if ($done{$book}) {next;} # already done, no error
+      if ($bookSelect eq 'all' || $bookSelect eq $book) {
+        my $parentScope = $fullScope;
+        my $parentTitle = $translationTitle;
+        foreach my $scope (@SUB_PUBLICATIONS) {
+          my $s = $scope; $s =~ s/\s+/_/g;
+          foreach my $sbk (@{&scopeToBooks($scope, &conf('Versification'))}) {
+            if ($book eq $sbk) {
+              $parentScope = $scope;
+              $parentTitle = &conf("SubPublicationTitle[$s]");
+            }
+          }
+        }
+        $forkArgs .= &OSIS_To_ePublication(
+          1,
+          $convertTo,
+          $parentTitle,
+          $book,
+          $parentScope,
+          'book',
+          &bookPubFileName($parentTitle, $book, 'book'),
+          ''
+        );
+      }
+      $done{$book}++;
+    }
   }
 
   if (!($NO_FORKS =~ /\b(1|true|osis2pubs)\b/)) {
@@ -315,46 +296,6 @@ sub osis2pubs {
 ########################################################################
 ########################################################################
 
-# Call OSIS_To_ePublication on each book Part of a larger publication.
-sub createParts {
-  my $doneHP = shift;    # book publications already created
-  my $type = shift;      # type of book publication (book|tbook)
-  my $convertTo = shift; # conversion
-  my $select = shift;    # selection value
-  my $scope = shift;     # scope of publication from which book pubs come
-  my $title = shift;     # title of publication from which book pubs come
-  my $subdir = shift;    # subdirectory in which to place created pubs
-
-  my $skipDone = ( $type eq 'book' ? 0 :
-  (&conf('MakeSet[book]', undef, undef, $convertTo) eq 'all' ? 0 : 1) );
-
-  my $forkargs;
-
-  my @books = @{&scopeToBooks($scope, &conf('Versification'))};
-
-  # There are no Parts for single book publications
-  if (@books <= 1) {return '';}
-
-  foreach my $bk (@books) {
-    if ($skipDone && $doneHP->{$bk}) {next;}
-    if ($select eq 'all' || $select eq $bk) {
-      $forkargs .= &OSIS_To_ePublication(
-        1,
-        $convertTo,
-        $title,
-        $bk,
-        $scope,
-        $type,
-        &bookPubFileName($title, $bk, $type),
-        $subdir
-      );
-    }
-    $doneHP->{$bk}++;
-  }
-
-  return $forkargs;
-}
-
 # Either loads arguments for forks.pm to run OSIS_To_ePublication2 as
 # forks later on, or else runs OSIS_To_ePublication2 now.
 sub OSIS_To_ePublication {
@@ -399,7 +340,8 @@ sub OSIS_To_ePublication2 {
 MAKING " . uc($convertTo) . ": scope=$scope, type=$pubSet, " .
 "name=$pubName, subdir='$pubSubdir'\n\n", 1);
 
-  my $tmp = $pscope; $tmp = ($tmp ? "$TMPDIR/$tmp":$TMPDIR);
+  my $tmp = $pscope;
+  $tmp = ($tmp ? "$TMPDIR/$tmp" : $TMPDIR);
   if ($pscope && -e "$tmp") {remove_tree("$tmp");}
   make_path("$tmp/tmp/bible");
   my $osis = "$tmp/tmp/bible/$MOD.xml";
@@ -716,7 +658,7 @@ sub filterBibleToScope {
   my @scopedPeriphs = $XPC->findnodes('//osis:div[not(@type="book")][@scope]', $inxml);
 
   # Remove scoped periphs pertaining to other sub-publications.
-  if ($pubSet ne 'tran') {
+  if ($pubSet ne 'comp') {
     foreach my $sp (@SUB_PUBLICATIONS) {
       if ($sp eq $parentScope) {next;}
       for (my $i=0; $i<@scopedPeriphs; $i++) {

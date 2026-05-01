@@ -4,9 +4,9 @@
 # setup. This file will be superceded by any corresponding default file
 # in a project's defaults directory.
 
-# Return the filename to use (without extension) for a particular 'tran'
+# Return the filename to use (without extension) for the 'comp'
 # publication.
-sub tranPubFileName {
+sub compilationPubFileName {
   my $title = shift;
   my $scope = shift;
 
@@ -17,8 +17,8 @@ sub tranPubFileName {
 }
 
 # Return the filename to use (without file extension) for a particular
-# sub-publication.
-sub subPubFileName {
+# 'full' sub-publication.
+sub fullPubFileName {
   my $title = shift;
   my $scope = shift;
 
@@ -59,21 +59,6 @@ sub genericBookFileName {
   my $t = $title; $t =~ s/\s+/-/g;
 
   return "$t(Book)";
-}
-
-# Return a hash whose key value pairs are scope => sub-directory by
-# scanning $url for files of $type and recording the scope of such
-# files located there and the sub-directory in which they are found.
-# The scope: 'childrens_bible' is used when Children's Bibles (having no
-# scope) are found.
-sub readServerScopes {
-  my $url        = shift; # URL to go to
-  my $mainmod    = shift; # mainmod to look for
-  my $type       = shift; # type of file to look for
-
-  my %result;
-
-  return \%result;
 }
 
 1;

@@ -149,8 +149,8 @@ our %CONFIG_DEFAULTS = (
   'TOC' => '2',
   'TitleCase' => '0',
   'TitleTOC' => '2',
-  'MakeSet[tran]' => 'AUTO',
-  'MakeSet[subpub]' => 'AUTO',
+  'MakeSet[comp]' => 'AUTO',
+  'MakeSet[full]' => 'AUTO',
   'MakeSet[book]' => 'AUTO',
   'MakeTypes' => 'AUTO',
   'CombineGlossaries' => 'AUTO',
@@ -1121,8 +1121,8 @@ sub confAuto {
                 -e "$DICTINPD/CF_addDictLinks.xml" ) ? 'true':'');
   }
   elsif ($autoContext eq 'ebooks') {
-    if ($entry eq 'MakeSet[tran]')   {return 'true';}
-    if ($entry eq 'MakeSet[subpub]') {return 'true';}
+    if ($entry eq 'MakeSet[comp]')   {return 'true';}
+    if ($entry eq 'MakeSet[full]')   {return 'true';}
     if ($entry eq 'MakeSet[book]')   {return 'true';}
     if ($entry eq 'MakeTypes')       {
       return join(' ', &CONV_OUTPUT_FILES('osis2ebooks'));
@@ -1130,8 +1130,8 @@ sub confAuto {
   }
 
   elsif ($autoContext eq 'html') {
-    if ($entry eq 'MakeSet[tran]')   {return 'true';}
-    if ($entry eq 'MakeSet[subpub]') {return '';}
+    if ($entry eq 'MakeSet[comp]')   {return 'true';}
+    if ($entry eq 'MakeSet[full]')   {return '';}
     if ($entry eq 'MakeSet[book]')   {return '';}
     if ($entry eq 'MakeTypes')       {
       return join(' ', &CONV_OUTPUT_FILES('osis2html'));
