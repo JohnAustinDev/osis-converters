@@ -180,12 +180,13 @@ sub readTerm {
 }
 
 sub readRefs {
-  my $termID = encode('utf8', shift);
+  my $termID = shift;
   my $osisvc = shift;
 
   my $osis = $XML_PARSER->parse_file($osisvc);
 
-  my $refxpath = "osis:reference[contains(concat(' ', normalize-space(\@osisRef), ' '), ' $termID ')]";
+  my $termIDEnc = encode('utf8', $termID);
+  my $refxpath = "osis:reference[contains(concat(' ', normalize-space(\@osisRef), ' '), ' $termIDEnc ')]";
 
   my @refNodes = $XPC->findnodes(".//$refxpath", $osis);
 
@@ -228,7 +229,7 @@ sub readRefs {
     push(@refs, $osisID . ": " . $text);
   }
   if (!@refs) {
-    &Error("Failed to find references: $termID");
+    &Warn("Failed to find any references to osisID '$termID'");
   }
 
   return \@refs;
