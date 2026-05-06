@@ -898,36 +898,42 @@
   context for TOC determination. Otherwise element is simply returned. -->
   <function name="oo:origElement" as="element()">
     <param name="element" as="element()"/>
-    <param name="preprocessedMainOSIS"/>
-    <param name="preprocessedRefOSIS"/>
-    <param name="combinedGlossary"/>
+    <param name="preprocessedMainOSIS" as="document-node()"/>
+    <param name="preprocessedRefOSIS" as="document-node()"/>
+    <param name="combinedGlossary" as="document-node()"/>
     <choose>
+      <!-- chapter TOC elements don't require context for TOC determiniation -->
       <when test="$element[@osisID]
           [ self::milestone[@type=concat('x-usfm-toc', $TOC)] or
             self::seg[@type='keyword'] ]">
-        <variable name="result" as="element()?">
+        <variable name="elementDoc" as="document-node()">
           <choose>
             <when test="
                 $element/ancestor::osisText[1]/@osisIDWork =
                 $preprocessedMainOSIS/descendant-or-self::osisText[1]/@osisIDWork">
-              <sequence select="key('osisID', $element/@osisID, $preprocessedMainOSIS)"/>
+              <sequence select="$preprocessedMainOSIS"/>
             </when>
             <when test="
                 $element/ancestor::osisText[1]/@osisIDWork =
                 $preprocessedRefOSIS/descendant-or-self::osisText[1]/@osisIDWork">
-              <sequence select="key('osisID', $element/@osisID, $preprocessedRefOSIS)"/>
+              <sequence select="$preprocessedRefOSIS"/>
             </when>
             <otherwise>
-              <sequence select="key('osisID', $element/@osisID, $combinedGlossary)"/>
+              <sequence select="$combinedGlossary"/>
             </otherwise>
           </choose>
         </variable>
+        <variable name="result" as="element()?">
+          <sequence select="key('osisID', $element/@osisID, $elementDoc)"/>
+        </variable>
+        <!-- Don't error if the element doesn't require context for TOC determination -->
         <if test="
             not($result) and
-            not($element/@osisID = 'CombindedGlossary')
+            not($element/@osisID = 'CombindedGlossary') and
+            not($element[@isNote='yes'])
           ">
           <call-template name="ErrorBug">
-<with-param name="msg">oo:origElement() found no original element: <value-of select="oc:printNode($element)"/></with-param>
+<with-param name="msg">oo:origElement() found no original element: <value-of select="oc:printNode($element)"/> in document '<value-of select="$elementDoc/osis/osisText/@osisIDWork"/>'</with-param>
           </call-template>
         </if>
         <sequence select="if ($result) then $result else $element"/>

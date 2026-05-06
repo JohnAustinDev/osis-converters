@@ -1190,7 +1190,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
             <value-of>
               <choose>
                 <when test="self::element()">
-                  <value-of>[<value-of select="./name()"/><for-each select="./@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each>]</value-of>
+                  <value-of>&#60;<value-of select="./name()"/><for-each select="./@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each>&#62;</value-of>
                 </when>
                 <when test="self::text()"><value-of select="concat('text-node = [', ., ']')"/></when>
                 <when test="self::comment()"><value-of select="concat('comment-node = [', ., ']')"/></when>
