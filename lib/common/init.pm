@@ -235,7 +235,7 @@ sub readBookNamesXML {
   foreach my $bknxml (split(/\n+/, &shell("find '$MAININPD/sfm' -name 'BookNames.xml' -print", 3, 1))) {
     if (! -e "$bknxml") {next;}
     my $bknames = $XML_PARSER->parse_file("$bknxml");
-    my @bkelems = $XPC->findnodes('//book[@code]', $bknames);
+    my @bkelems = $XPC->findnodes('//*[local-name()="book"][@code]', $bknames);
     if (@bkelems[0]) {
       &Note("Reading localized book names from \"$bknxml\"");
     }

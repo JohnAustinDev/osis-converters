@@ -1,19 +1,19 @@
 # This file is part of "osis-converters".
-# 
+#
 # Copyright 2021 John Austin (gpl.programs.info@gmail.com)
-#     
-# "osis-converters" is free software: you can redistribute it and/or 
-# modify it under the terms of the GNU General Public License as 
-# published by the Free Software Foundation, either version 2 of 
+#
+# "osis-converters" is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 2 of
 # the License, or (at your option) any later version.
-# 
+#
 # "osis-converters" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with "osis-converters".  If not, see 
+# along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
 use strict;
@@ -28,11 +28,11 @@ sub adjustAnnotateRefs {
   my $osisP = shift;
 
   &Log("\nChecking annotateRef targets in \"$$osisP\".\n");
-  
+
   my $xml = $XML_PARSER->parse_file($$osisP);
-  
+
   my $osisIDsP = &getVerseOsisIDs($xml);
-  
+
   my $update;
   foreach my $reference (@{$XPC->findnodes('//osis:reference[@type="annotateRef"][@osisRef]', $xml)}) {
     my $remove;
@@ -44,7 +44,7 @@ sub adjustAnnotateRefs {
       $reference->parentNode->insertAfter($new, $reference);
       $reference->unbindNode();
       &Warn("Removing annotateRef hyperlink to missing verse(s): '".$reference->getAttribute('osisRef')."'",
-      "This can happen when the source text has annotateRef references 
+      "This can happen when the source text has annotateRef references
 targeting purposefully missing verses for instance. In such cases it is
 correct to convert these to textual rather than hyperlink references.");
     }
@@ -62,16 +62,16 @@ correct to convert these to textual rather than hyperlink references.");
 # here are either mis-parsed, or are errors in the source text.
 sub checkMarkSourceScripRefLinks {
   my $in_osis = shift;
-  
+
   if (&conf("ARG_SkipSourceRefCheck") =~/^true$/i) {
     &Note("Source references will not be checked because ARG_SkipSourceRefCheck=true");
     return
   }
-  
+
   &Log("\nCHECKING SOURCE SCRIPTURE REFERENCE OSISREF TARGETS IN $in_osis...\n");
-  
+
   my $changes = 0; my $problems = 0; my $checked = 0;
-  
+
   my $in_bible = ($INPD eq $MAININPD ? $in_osis:'');
   if (!$in_bible) {
     # The Bible OSIS needs to be put into the source verse system for this check
@@ -79,7 +79,7 @@ sub checkMarkSourceScripRefLinks {
     &copy(&getModuleOsisFile($MAINMOD, 'Error'), $in_bible);
     &runScript("$SCRD/lib/sourceVerseSystem.xsl", \$in_bible);
   }
-  
+
   my $osis;
   if (-e $in_bible) {
     my $bible = $XML_PARSER->parse_file($in_bible);
@@ -93,7 +93,7 @@ sub checkMarkSourceScripRefLinks {
     foreach my $v ($XPC->findnodes('//osis:verse[@osisID] | //osis:chapter[@osisID]', $bible)) {
       foreach my $id (split(/\s+/, $v->getAttribute('osisID'))) {$ids{"$MAINMOD:$id"}++;}
     }
-    
+
     # Check Scripture references in the original text (not those added by addCrossRefLinks)
     $osis = $XML_PARSER->parse_file($in_osis);
     foreach my $sref ($XPC->findnodes('//osis:reference[not(starts-with(@type, "x-gloss"))][not(ancestor::osis:note[@resp])][@osisRef]', $osis)) {
@@ -107,10 +107,10 @@ sub checkMarkSourceScripRefLinks {
           &ErrorBug("Failed to parse reference from book: $id !~ /\:([^\.]+)/ in $sref.");
         }
         elsif (!$bks{$bk}) {
-          &Warn("<>Marking hyperlinks to missing book: $bk", 
-"<>Apparently not all 66 Bible books have been included in this 
-project, but there are references in the source text to these missing 
-books. So these hyperlinks will be marked as x-external until the 
+          &Warn("<>Marking hyperlinks to missing book: $bk",
+"<>Apparently not all 66 Bible books have been included in this
+project, but there are references in the source text to these missing
+books. So these hyperlinks will be marked as x-external until the
 other books are added to the translation.");
           if ($sref->getAttribute('subType') && $sref->getAttribute('subType') ne 'x-external') {
             &ErrorBug("Overwriting subType ".$sref->getAttribute('subType')." with x-external in $sref");
@@ -122,11 +122,12 @@ other books are added to the translation.");
           $problems++;
           my @anc = $XPC->findnodes('./ancestor::*[@osisID]', $sref);
           my $loc = join(', ', map($_->getAttribute('osisID'), @anc));
+          my $context = $sref->parentNode->textContent;
           &Error(
-"Scripture reference at: $loc targets a nonexistant verse: \"$id\"", 
-"Maybe this should not have been parsed as a Scripture 
-reference, or maybe it was mis-parsed by CF_addScripRefLinks.txt? Or 
-else this is a problem with the source text: 
+"Scripture reference at: $loc, having context '$context', targets this nonexistant verse: '$id'",
+"Maybe this should not have been parsed as a Scripture
+reference, or maybe it was mis-parsed by CF_addScripRefLinks.txt? Or
+else this is a problem with the source text:
 ".$sref);
         }
       }
@@ -136,36 +137,36 @@ else this is a problem with the source text:
     $problems++;
     &Error("Cannot check Scripture reference targets because unable to locate $MAINMOD.xml.", "Run sfm2osis on $MAINMOD to generate an OSIS file.");
   }
-  
+
   if ($osis && $changes) {&writeXMLFile($osis, $in_osis);}
-  
+
   &Report("$checked Scripture references checked. ($problems problems)\n");
 }
 
 sub removeMissingOsisRefs {
   my $osisP = shift;
-  
+
   my $xml = $XML_PARSER->parse_file($$osisP);
-  
+
   my @badrefs = $XPC->findnodes('//osis:reference[not(@osisRef)]', $xml);
   if (!@badrefs[0]) {return;}
-  
-  &Error("There are ".@badrefs." reference element(s) without osisRef attributes. These reference tags will be removed!", 
+
+  &Error("There are ".@badrefs." reference element(s) without osisRef attributes. These reference tags will be removed!",
 "Make sure AddScripRefLinks is set to 'true' in CF_sfm2osis.txt, so that reference osisRefs will be parsed.");
-  
+
   foreach my $r (@badrefs) {
     my @children = $r->childNodes();
     foreach my $child (@children) {$r->parentNode->insertBefore($child, $r);}
     $r->unbindNode();
   }
-  
+
   &writeXMLFile($xml, $osisP);
 }
 
 sub reportReferences {
   my $refcntP = shift;
   my $errorsP = shift;
-  
+
   my $total = 0; my $errtot = 0;
   foreach my $type (sort keys (%{$refcntP})) {
     &Report("<-\"".$refcntP->{$type}."\" ${type}s checked. (".($errorsP->{$type} ? $errorsP->{$type}:0)." problems)");
@@ -177,11 +178,11 @@ sub reportReferences {
 
 sub writeMissingNoteOsisRefsFAST {
   my $osisP = shift;
-  
+
   &Log("\nWriting missing note osisRefs in OSIS file \"$$osisP\".\n", 1);
-  
+
   my @files = &splitOSIS($$osisP);
-  
+
   my $count = 0;
   foreach my $file (@files) {
     my $xml;
@@ -192,22 +193,22 @@ sub writeMissingNoteOsisRefsFAST {
     $count += &writeMissingNoteOsisRefs($element);
     &writeXMLFile($xml, $file);
   }
-  
+
   &joinOSIS($osisP);
-  
+
   &Report("Wrote \"$count\" note osisRefs.");
 }
 
-# A note's osisRef points to the passage to which a note applies. For 
-# glossaries this is the note's context keyword. For Bibles this is also 
-# the note's context, unless the note contains a reference of type 
+# A note's osisRef points to the passage to which a note applies. For
+# glossaries this is the note's context keyword. For Bibles this is also
+# the note's context, unless the note contains a reference of type
 # annotateRef, in which case the note applies to the annotateRef passage.
 sub writeMissingNoteOsisRefs {
   my $xml = shift;
-  
+
   my @notes = $XPC->findnodes('descendant::osis:note[not(@osisRef)]', $xml);
   my $refSystem = &getOsisRefSystem($xml);
-  
+
   my $count = 0;
   foreach my $note (@notes) {
     my $osisRef;
@@ -222,7 +223,7 @@ sub writeMissingNoteOsisRefs {
     if (!$osisRef) {
       $osisRef = @{&atomizeContext(&otherModContext($note))}[0];
     }
-    
+
     # Check if Bible annotateRef should override verse context
     my $con_bc; my $con_vf; my $con_vl;
     if (&isBible($xml) && $osisRef =~ /^($OSISBOOKSRE)\.\d+\.\d+$/) {
@@ -257,26 +258,26 @@ sub writeMissingNoteOsisRefs {
           $aror = '';
         }
       }
-      
+
       $osisRef = ($aror ? $aror:"$con_bc.$con_vf".($con_vl != $con_vf ? "-$con_bc.$con_vl":''));
     }
 
     $note->setAttribute('osisRef', $osisRef);
     $count++;
   }
-  
+
   return $count;
 }
 
 sub removeDefaultWorkPrefixesFAST {
   my $osisP = shift;
-  
+
   &Log("\nRemoving default work prefixes in OSIS file \"$$osisP\".\n", 1);
-  
+
   my @files = &splitOSIS($$osisP);
-  
+
   my %stats = ('osisRef'=>0, 'osisID'=>0);
-  
+
   foreach my $file (@files) {
     my $xml; my $filter;
     my $element = &splitOSIS_element($file, \$xml, \$filter);
@@ -286,21 +287,21 @@ sub removeDefaultWorkPrefixesFAST {
     &removeDefaultWorkPrefixes($element, \%stats, $filter);
     &writeXMLFile($xml, $file);
   }
-  
+
   &joinOSIS($osisP);
-  
+
   &Report("Removed \"".$stats{'osisRef'}."\" redundant Work prefixes from osisRef attributes.");
   &Report("<-Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.");
 }
 
 # Removes work prefixes of all osisIDs and osisRefs which match their
-# respective osisText osisIDWork or osisRefWork attribute value (in 
+# respective osisText osisIDWork or osisRefWork attribute value (in
 # other words removes work prefixes which are unnecessary).
 sub removeDefaultWorkPrefixes {
   my $xml = shift;
   my $statsP = shift;
   my $filter = shift;
-  
+
   # normalize osisRefs
   my @osisRefs = $XPC->findnodes("descendant-or-self::*${filter}/\@osisRef", $xml);
   my $osisRefWork = &getOsisRefWork($xml);
@@ -312,7 +313,7 @@ sub removeDefaultWorkPrefixes {
     $osisRef->setValue($new);
     $statsP->{'osisRef'}++;
   }
-  
+
   # normalize osisIDs
   my @osisIDs = $XPC->findnodes("descendant-or-self::*${filter}/\@osisID", $xml);
   my $osisIDWork = &getOsisIDWork($xml);
