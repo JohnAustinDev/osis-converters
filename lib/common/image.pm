@@ -478,7 +478,7 @@ sub sortCoverImages {
   return 0;
 }
 
-# Returns a portion of an ImageMagick command line for adding a cation to an image
+# Returns a portion of an ImageMagick command line for adding a caption to an image
 sub imageCaption {
   my $width = shift;
   my $title = shift;

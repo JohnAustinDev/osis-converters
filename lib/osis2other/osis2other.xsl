@@ -433,7 +433,7 @@
     <variable name="myTocLevel" as="xs:integer" select="
         if ($isTopTOC)
         then 0
-        else oo:getTocLevel($tocNode)"/>
+        else oo:getTocLevel($tocNode, false())"/>
     <variable name="sourceDir" select="
         concat(
           '/html/',
@@ -496,9 +496,9 @@
                 if ($isTopTOC)
                 then ()
                 else $tocNode/following::*[. intersect $followingTocCandidates]
-                  [oo:getTocLevel(.) &#60;= $myTocLevel][1]"/>
+                  [oo:getTocLevel(., false()) &#60;= $myTocLevel][1]"/>
             <sequence select="
-                $followingTocCandidates[oo:getTocLevel(.) = $myTocLevel + 1]
+                $followingTocCandidates[oo:getTocLevel(., false()) = $myTocLevel + 1]
                 [not($nextTocSP) or not(. intersect $nextTocSP)]
                 [not($nextTocSP) or not(. &#62;&#62; $nextTocSP)]"/>
           </otherwise>
@@ -708,7 +708,7 @@
     )"/>
   </function>
 
-  <function name="oo:isBibleIntroTOC" as="xs:boolean">
+    <function name="oo:isBibleIntroTOC" as="xs:boolean">
     <param name="x" as="node()"/>
     <sequence select="boolean($x intersect $x/ancestor::osisText/
       div[not(@type = ('book', 'bookGroup'))]
@@ -717,6 +717,7 @@
       [not(oo:getTocClasses(.) = 'no_toc')])"/>
   </function>
 
+  <!-- This function should only be called in preprocess mode -->
   <function name="oo:isParentTOC" as="xs:boolean">
     <param name="x" as="node()"/>
     <sequence select="boolean(
@@ -732,11 +733,12 @@
           oo:isBibleIntroTOC($x) or
           oo:isBookTOC($x) or
           oo:isBookGroupTOC($x) or
-          (oo:isBookSubGroupTOC($x) and oo:getTocLevel($x) = 1) or
+          (oo:isBookSubGroupTOC($x) and oo:getTocLevel($x, true()) = 1) or
           oo:isChildrensBibleSectionTOC($x)
         ))"/>
   </function>
 
+  <!-- This function should only be called in preprocess mode -->
   <function name="oo:getParentTOC" as="element(milestone)?">
     <param name="x" as="node()"/>
     <choose>
@@ -785,36 +787,51 @@
 
   <!-- getTocLevel returns an integer which is the TOC hierarchy level
   of the tocElement; where 1 is the hightest possible level and 3 is the
-  lowest (deeper levels will throw an ERROR as they are not supported by
-  eBook readers). IMPORTANT: the tocElement MUST be either the
-  oo:origElement(.) or have an explicit TOC level (ie. [level2]). -->
+  lowest (deeper levels will return 3 and throw a WARNING as they are not
+  supported by eBook readers). After preprocess mode is done, the TOC level
+  MUST be specified in the n attribute by a [levelN] instruction. Chapter and
+  keyword TOC element n attributes are set during preprocess mode. -->
   <function name="oo:getTocLevel" as="xs:integer">
     <param name="tocElement" as="element()"/>
+    <param name="isPreprocess" as="xs:boolean"/>
 
     <variable name="toclevelEXPLICIT" as="xs:integer" select="
       if (matches($tocElement/@n, '\[level(\d)\]'))
       then (xs:integer(replace($tocElement/@n, '^.*?\[level(\d)\].*$', '$1')))
       else 0"/>
-    <variable name="parentTOC" as="element(milestone)?"
-      select="oo:getParentTOC($tocElement)"/>
     <variable name="result" as="xs:integer">
       <choose>
         <when test="$toclevelEXPLICIT != 0">
           <value-of select="$toclevelEXPLICIT"/>
         </when>
-        <when test="$parentTOC">
-          <value-of select="1 + oo:getTocLevel($parentTOC)"/>
+        <when test="$isPreprocess">
+          <variable name="parentTOC" as="element(milestone)?"
+            select="oo:getParentTOC($tocElement)"/>
+          <choose>
+            <when test="$parentTOC">
+              <value-of select="1 + oo:getTocLevel($parentTOC, $isPreprocess)"/>
+            </when>
+            <otherwise><value-of select="1"/></otherwise>
+          </choose>
         </when>
-        <otherwise><value-of select="1"/></otherwise>
+        <otherwise><value-of select="0"/></otherwise>
       </choose>
     </variable>
     <choose>
       <when test="$result &#62; 3">
-        <value-of select="3"/>
         <call-template name="Warn">
 <with-param name="msg">Maximum TOC level exceeded (<value-of select="$result"/> &#62; 3) defaulting to 3: <value-of select="oc:printNode($tocElement)"/></with-param>
 <with-param name="exp">EBook readers handle up to 3 levels of TOC. Use [levelN] TOC instructions to reduce the hierarchy level.</with-param>
         </call-template>
+        <value-of select="3"/>
+      </when>
+      <when test="$result = 0">
+        <if test="not($isPreprocess) and $tocElement[self::milestone]">
+          <call-template name="Error">
+<with-param name="msg">TOC level must be specified with [levelN]: <value-of select="oc:printNode($tocElement)"/></with-param>
+          </call-template>
+        </if>
+        <value-of select="1"/>
       </when>
       <otherwise><value-of select="$result"/></otherwise>
     </choose>
@@ -869,7 +886,7 @@
   </function>
 
   <!-- oo:getTocAttributes returns attributes for transformed TOC
-  elements. The title attribute is used Calibre for building the TOC.
+  elements. The title attribute is used by Calibre for building the TOC.
   IMPORTANT: the tocElement MUST be either the oo:origElement(.)
   or have an explicit TOC level (ie. [level2]).
   These are TOC elements:
@@ -888,7 +905,7 @@
 
       <if test="not($classes = ('no_toc', 'only_inline_toc'))">
         <attribute name="title" select="
-          concat('toclevel-', oo:getTocLevel($tocElement))"/>
+          concat('toclevel-', oo:getTocLevel($tocElement, false()))"/>
       </if>
     </if>
   </function>
@@ -930,7 +947,7 @@
         <if test="
             not($result) and
             not($element/@osisID = 'CombindedGlossary') and
-            not($element[@isNote='yes'])
+            not($element[self::seg[@type='keyword']])
           ">
           <call-template name="ErrorBug">
 <with-param name="msg">oo:origElement() found no original element: <value-of select="oc:printNode($element)"/> in document '<value-of select="$elementDoc/osis/osisText/@osisIDWork"/>'</with-param>
@@ -1009,7 +1026,7 @@
   <template mode="chapterLabel" match="note"/>
 
   <!-- #################################################################### -->
-  <!--                 PRE-PROCESS THE MAIN OSIS FILE                        -->
+  <!--                 PREPROCESS THE MAIN OSIS FILE                        -->
   <!-- #################################################################### -->
 
   <!-- OSIS pre-processing templates greatly speed up processing that
@@ -1102,25 +1119,49 @@
   </template>
   <template mode="preprocess" match="milestone[@type=concat('x-usfm-toc', $TOC)]">
     <copy>
-      <apply-templates mode="#current" select="@*"/>
+      <apply-templates mode="#current" select="@*[local-name() != 'n']"/>
       <if test="self::*[. intersect $mainTocMilestone]">
         <attribute name="isMainTocMilestone" select="'true'"/>
       </if>
       <if test="not(@osisID) or not(matches(@osisID, '\S'))">
         <attribute name="osisID" select="generate-id(.)"/>
       </if>
-      <if test="not(ancestor::div[@type='glossary']) and
-                not(matches(@n, '\[(inline_toc_first|inline_toc_last)\]'))">
-        <attribute name="n" select="concat(if (oc:docWork(.) = $MAINMOD)
-                                           then '[inline_toc_first]'
-                                           else '[inline_toc_last]', @n)"/>
-      </if>
+      <variable name="n" as="xs:string+">
+        <if test="not(matches(@n, '\[level(\d)\]'))">
+          <value-of select="concat('[level', oo:getTocLevel(., true()), ']')"/>
+        </if>
+        <if test="not(ancestor::div[@type='glossary']) and
+                  not(matches(@n, '\[(inline_toc_first|inline_toc_last)\]'))">
+          <value-of select="
+              if (oc:docWork(.) = $MAINMOD)
+              then '[inline_toc_first]'
+              else '[inline_toc_last]'"/>
+        </if>
+        <if test="@n"><value-of select="@n"/></if>
+      </variable>
+      <attribute name="n" select="string-join($n, '')"/>
       <apply-templates mode="#current"/>
     </copy>
   </template>
-  <template mode="preprocess" match="title[oc:docWork(.) = $MAINMOD]
-                                          [ancestor::div[@annotateType='x-feature'][@annotateRef='INT']]
-                                          [string() = $INT_title]">
+  <template mode="preprocess" match="seg[@type='keyword'] | chapter[@osisID]">
+    <copy>
+      <if test="not(@n)">
+        <variable name="prevMilestoneTOC" select="
+          preceding::milestone[@type=concat('x-usfm-toc', $TOC)]
+          [not(matches(@n, '\[not_parent\]'))][1]"/>
+        <variable name="prevMilestoneTOCLevel" select="
+          if ($prevMilestoneTOC)
+          then oo:getTocLevel($prevMilestoneTOC, true())
+          else 0"/>
+        <attribute name="n" select="concat('[level', $prevMilestoneTOCLevel + 1, ']')"/>
+      </if>
+      <apply-templates mode="#current" select="@*|node()"/>
+    </copy>
+  </template>
+  <template mode="preprocess" match="
+      title[oc:docWork(.) = $MAINMOD]
+      [ancestor::div[@annotateType='x-feature'][@annotateRef='INT']]
+      [string() = $INT_title]">
     <copy><!-- !INT extension allows reference mode=html Scripture ref check -->
       <apply-templates mode="#current" select="@*"/>
       <attribute name="osisID" select="concat(oc:encodeOsisRef(string()),'!INT')"/>
@@ -1435,12 +1476,10 @@
         </html:dfn>
       </when>
       <when test="$target = 'fb2'">
-        <if test="oo:getTocInstructions(.) = 'no_toc'">
-          <!-- No FB2 section will have this osisID, so keep a potential link
-          target. -->
-          <fb2:tmpOsisID osisID="{@osisID}"/>
-          <fb2:tmpOsisID osisID="{oc:id(@osisID)}"/>
-        </if>
+        <!-- No FB2 section will have this osisID, so keep a potential link
+        target. -->
+        <fb2:tmpOsisID osisID="{@osisID}"/>
+        <fb2:tmpOsisID osisID="{oc:id(@osisID)}"/>
         <fb2:strong>
           <value-of select="oo:getTocTitle(.)"/>
         </fb2:strong>
@@ -1455,7 +1494,7 @@
       <if test="
           not(ancestor-or-self::div[@resp='x-oc']) and
           not($doCombineGlossaries) and
-          oo:getTocLevel(.//seg[@type='keyword'][1]) = 1 and
+          oo:getTocLevel(.//seg[@type='keyword'][1], false()) = 1 and
           count(distinct-values(
             $preprocessedRefOSIS//div[@type='glossary']/
             oc:getDivScopeTitle(.)
@@ -1879,7 +1918,7 @@
         <!-- If a glossary disambiguation title is needed, then write that out. -->
         <if test="
             not($doCombineGlossaries) and
-            oo:getTocLevel(.) = 1 and
+            oo:getTocLevel(., false()) = 1 and
             count(distinct-values(
               $preprocessedRefOSIS//div[@type='glossary']/oc:getDivScopeTitle(.)
             )) &#62; 1">

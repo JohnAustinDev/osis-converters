@@ -364,9 +364,7 @@
 
   <!-- Mark sectionLevelFB2 elements with the level to be used for subsequent
   grouping into fb2 sections during the sectionsFB2 mode. These section elements
-  will solely determine the FB2 detached TOC. Also write explicit TOC levels to
-  each TOC element because otherwise oo:getTocLevel(.) will no longer work
-  properly after the removeDivsFB2 mode transformation! -->
+  will solely determine the FB2 detached TOC. -->
   <template mode="removeDivsFB2" priority="2" match="
       chapter[@sID] |
       div[starts-with(@type, 'x-keyword')] |
@@ -376,39 +374,18 @@
       then descendant::seg[@type='keyword'][1]
       else ."/>
     <variable name="instructions" select="oo:getTocInstructions($tocElement)"/>
-    <variable name="level" select="oo:getTocLevel($tocElement)"/>
+    <variable name="level" select="oo:getTocLevel($tocElement, false())"/>
     <choose>
       <when test="$instructions = ('no_toc', 'only_inline_toc')">
         <next-match/>
       </when>
       <otherwise>
         <copy>
-          <if test="not(self::div[starts-with(@type, 'x-keyword')])">
-            <attribute name="n" select="me:getN(.)"/>
-          </if>
           <attribute name="sectionLevelFB2" select="$level"/>
-          <apply-templates mode="#current"
-            select="node()|@*[local-name() != 'n']"/>
+          <apply-templates mode="#current" select="node()|@*"/>
         </copy>
       </otherwise>
     </choose>
-  </template>
-
-  <!-- Each TOC element must have explicit toclevel, which happens for most toc
-  elements in the above template. But although glossary keywords are grouped
-  using div[starts-with(@type, 'x-keyword')] the descendant seg[@type='keyword']
-  is the actual tocElement. So add @n to those too now. -->
-  <template mode="removeDivsFB2" match="seg[@type='keyword']">
-    <copy>
-      <attribute name="n" select="me:getN(.)"/>
-      <attribute name="isNote" select="
-          if ( ancestor::div[@type='glossary'][1]
-            [@scope='NAVMENU' or @annotateRef='INT'] )
-          then 'no'
-          else 'yes'"/>
-      <apply-templates mode="#current"
-        select="node()|@*[local-name() != 'n']"/>
-    </copy>
   </template>
 
   <template mode="removeDivsFB2" priority="1" match="comment()"/>
@@ -434,7 +411,7 @@
 
   <!-- Only the certain FB2 elements may have ids (image, p, v, poem, cite,
   epigraph, annotation, section, table and td). Therefore links targetting
-  verses and osisIDs must be re-targetted to one of these elements with an
+  verses and osisIDs must be re-targetted to one of these elements having an
   id. -->
   <template mode="postprocessFB2" match="@xlink:href">
     <variable name="id" select="substring(., 2)"/>
@@ -474,23 +451,7 @@ it far too large!
   <template mode="postprocessFB2" match="fb2:section[contains(@id, 'crossReference.r')]"/>
 -->
 
-  <!-- functions -->
-
-  <function name="me:getN" as="xs:string">
-    <param name="tocElement" as="element()"/>
-    <variable name="ntitle" select="
-      replace($tocElement/@n, '^(\[[^\]]*\])+', '')"/>
-    <variable name="level" select="oo:getTocLevel($tocElement)"/>
-    <variable name="instructions" as="xs:string+">
-      <for-each select="
-          (concat('level', $level), oo:getTocInstructions($tocElement))">
-        <if test="position() = 1 or not(matches(., '^level\d$'))">
-          <value-of select="concat('[', ., ']')"/>
-        </if>
-      </for-each>
-    </variable>
-    <value-of select="concat(string-join($instructions, ''), $ntitle)"/>
-  </function>
+<!-- functions -->
 
 <!-- Since note popups might only show the first p, the first p should not be
 just a heading. So if the body starts with a paragraph, insert the heading

@@ -807,9 +807,11 @@ sub filterBibleToScope {
   my $topmsTitle = @{$XPC->findnodes('/descendant::osis:milestone
       [@osisID="BIBLE_TOP"]/@n', $inxml)}[0];
   if ($filteredBooks && !$subPublication) {
-    $$bookTitlesP = join(', ', map($_->value, @{$XPC->findnodes(
+    my @bks = map($_->value, @{$XPC->findnodes(
       '//osis:div[@type="book"]/descendant::osis:milestone
-      [@type="x-usfm-toc'.$titleTOC.'"][1]/@n', $inxml)}));
+      [@type="x-usfm-toc'.$titleTOC.'"][1]/@n', $inxml)});
+    foreach my $bk (@bks) {$bk =~ s/^(\[[^\]]+\])+//;}
+    $$bookTitlesP = join(', ', @bks);
   }
   else {$$bookTitlesP = '';}
   if ($$bookTitlesP) {$$pubTitleP .= ": $$bookTitlesP";}
