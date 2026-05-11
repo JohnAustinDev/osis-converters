@@ -444,13 +444,6 @@
     </choose>
   </template>
 
-<!-- TODO: Large FB2 will not load in Calibre due to the number of notes. But
-does load in Android FBReader. In Calibre, notes appear in the TOC which makes
-it far too large!
-  <template mode="postprocessFB2" match="fb2:a[contains(@xlink:href, 'crossReference.r')]"/>
-  <template mode="postprocessFB2" match="fb2:section[contains(@id, 'crossReference.r')]"/>
--->
-
 <!-- functions -->
 
 <!-- Since note popups might only show the first p, the first p should not be
