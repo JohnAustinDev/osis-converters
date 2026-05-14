@@ -140,7 +140,7 @@ foreach my $term (
       my $filename = sprintf("%s prompt %s%s%s.txt",
         sprintf("%s %03d", $rows{$term}{'class'}, $terms{$term}{$dup}),
         $term,
-        $dup ? " $dup" : '',
+        $dup ? " ($dup)" : '',
         $single ? '' : '_' . ($n + 1) . '-' . ($n + @batch)
       );
       my $path = "$linksPromptDir/$filename";
