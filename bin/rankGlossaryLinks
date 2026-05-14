@@ -33,7 +33,8 @@ my $linksPromptDir = "$MAININPD/$linksPromtDirName";
 my $linksCsv = "$linksPromptDir/$linksCsvName";
 
 my $Iso = &conf('Lang'); $Iso =~ s/\-\w+$//;
-my $Columns = "\"ISO-639 $Iso glossary term\",\"ISO-639 $Iso link\",\"osisID\",\"Tier\"";
+my @Columns = ("\"ISO-639 $Iso glossary term\"", "\"ISO-639 $Iso link\"", "\"osisID\"", "\"Tier\"");
+my $Columns = join(',', @Columns);
 
 # Read the CSV file into a hash of hashes, and read config
 my %rows;
@@ -60,7 +61,7 @@ close $fh;
 &Note("Configuration:");
 &Log(Dumper($config{'default'}) . "\n");
 
-# Determine which terms are high risk and selected them for AI validation
+# Determine which terms are high risk and select them for AI validation
 my %riskyRows; # term => priority
 my $rec = $config{'default'}{'term classes requiring validation'};
 my $ret = $config{'default'}{'terms requiring validation'};
@@ -68,7 +69,22 @@ my $rno = $config{'default'}{'terms not requiring validation'};
 foreach my $e (keys %rows) {
   if ($rno && $e =~ /$rno/) {next;}
   if (($rec && $rows{$e}{'class'} =~ /$rec/) || ($ret && $e =~ /$ret/)) {
-    $riskyRows{$e} = sprintf("%s %03d", $rows{$e}{'class'}, $rows{$e}{'count'});
+    $riskyRows{$e} = $rows{$e}{'count'};
+  }
+}
+
+# Read the log file again to get totals for each term duplicate
+my $mainOutdir = &getModuleOutputDir($MAINMOD);
+my $sfm2osisLog = "$mainOutdir/LOG_sfm2osis.txt";
+my %terms;
+if (open(INF, "<:encoding(UTF-8)", "$sfm2osisLog")) {
+  while (<INF>) {
+    if (/^\s+(\d+)\s+links to (.*?)\s+as\s+/) {
+      my $tot = $1; my $term = $2;
+      my $dup = $term =~ / \((dup\d+)\)$/ ? $1 : 0;
+      $term =~ s/ \(dup\d+\)$//;
+      $terms{$term}{$dup} = $tot;
+    }
   }
 }
 
@@ -89,7 +105,6 @@ if (! -e "$linksCsv") {
 }
 
 # Create verse container OSIS file IF it does not exist (this runs SLOW)
-my $mainOutdir = &getModuleOutputDir($MAINMOD);
 my $verseContainerOsis = "$linksPromptDir/${MAINMOD}_vc.xml";
 my $modosis = "$mainOutdir/$MAINMOD.xml";
 if (! -e $verseContainerOsis || -M $verseContainerOsis > -M $modosis) {
@@ -106,32 +121,36 @@ my $totalRiskyRows = 0;
 my $totalPromptFiles = 0;
 my $totalLinks = 0;
 foreach my $term (
-  sort {$riskyRows{$b}.$b cmp $riskyRows{$a}.$a }
+  sort {$riskyRows{$b} <=> $riskyRows{$a} }
   keys %riskyRows
 ) {
   $totalRiskyRows++;
-  my $hP = &readTerm($term, $dictosis);
-  my $entryText = $hP->{'text'};
-  my $termID = $hP->{'osisID'};
+  my $aP = &readTerm($term, $dictosis);
+  foreach my $hP (@{$aP}) {
+    my $entryText = $hP->{'text'};
+    my $termID = $hP->{'osisID'};
+    my $dup = $termID =~ /(dup\d+)$/ ? $1 : 0;
 
-  my $refsAP = &readRefs($termID, $verseContainerOsis);
+    my $refsAP = &readRefs($termID, $verseContainerOsis);
 
-  my $single = @$refsAP <= $aiPromptLength;
-  my $n = 0;
-  while (@$refsAP) {
-    my @batch = splice(@$refsAP, 0, $aiPromptLength);
-    my $filename = sprintf("%s prompt %s%s.txt",
-      $riskyRows{$term},
-      $term,
-      $single ? '' : '_' . ($n + 1) . '-' . ($n + @batch)
-    );
-    my $path = "$linksPromptDir/$filename";
-    if (-e $path) {&Error("Prompt file exists: $path");}
-    writePrompt($entryText, \@batch, $path);
-    $totalPromptFiles++;
-    &Log("Wrote links prompt file with " . @batch . " links: $filename\n");
-    $n += @batch;
-    $totalLinks += @batch;
+    my $single = @$refsAP <= $aiPromptLength;
+    my $n = 0;
+    while (@$refsAP) {
+      my @batch = splice(@$refsAP, 0, $aiPromptLength);
+      my $filename = sprintf("%s prompt %s%s%s.txt",
+        sprintf("%s %03d", $rows{$term}{'class'}, $terms{$term}{$dup}),
+        $term,
+        $dup ? " $dup" : '',
+        $single ? '' : '_' . ($n + 1) . '-' . ($n + @batch)
+      );
+      my $path = "$linksPromptDir/$filename";
+      if (-e $path) {&Error("Prompt file exists: $path");}
+      writePrompt($entryText, \@batch, $path);
+      $totalPromptFiles++;
+      &Log("Wrote links prompt file with " . @batch . " links: $filename\n");
+      $n += @batch;
+      $totalLinks += @batch;
+    }
   }
 }
 
@@ -140,40 +159,48 @@ foreach my $term (
 ########################################################################
 ########################################################################
 
+# Take a glossary term and return OSIS dictionary information associated with
+# each osisID for that term (since the same term may have multiple entries).
 sub readTerm {
   my $term = shift;
   my $osisdict = shift;
 
   my $osis = $XML_PARSER->parse_file($osisdict);
 
-  my @kws = $XPC->findnodes(".//osis:div[\@type='x-keyword'][descendant::osis:seg[\@type='keyword'][normalize-space()='$term']]", $osis);
-  if (@kws == 1) {
-    my $kw = @kws[0];
-    $kw = &deleteXpath('.//osis:*[@resp="x-oc"]', $kw);
+  my @kws = $XPC->findnodes(
+    ".//osis:div[\@type='x-keyword' or \@type='x-keyword-duplicate']
+    [descendant::osis:seg[\@type='keyword'][normalize-space()='$term']]",
+    $osis
+  );
+  if (@kws) {
+    my @results;
+    foreach my $kw (@kws) {
+      # Make a copy that will be modified by replaceNode below.
+      $kw = &deleteXpath('.//osis:*[@resp="x-oc"]', $kw);
 
-    my @osisText = $XPC->findnodes('.//osis:osisText', $osis);
-    my $m = @osisText[0]->getAttribute('osisRefWork');
-    my @entnodes = $XPC->findnodes(
-      "descendant::osis:seg[\@type='keyword'][normalize-space()='$term']",
-      $kw
-    );
-    my $entnode = @entnodes[0];
-    my $osisID = $m . ':' . $entnode->getAttribute('osisID');
+      my @osisText = $XPC->findnodes('.//osis:osisText', $osis);
+      my $m = @osisText[0]->getAttribute('osisRefWork');
+      my @entnodes = $XPC->findnodes(
+        "descendant::osis:seg[\@type='keyword'][normalize-space()='$term']",
+        $kw
+      );
+      my $entnode = @entnodes[0];
+      my $osisID = $m . ':' . $entnode->getAttribute('osisID');
 
-    # Mark our term
-    my $termtext = $entnode->textContent();
-    $termtext .= ':';
-    my $new_node = $osis->ownerDocument->createTextNode($termtext);
-    $entnode->replaceNode($new_node);
+      # Get our term and definition
+      my $termtext = $entnode->textContent();
+      $termtext .= ':';
+      my $new_node = $osis->ownerDocument->createTextNode($termtext);
+      $entnode->replaceNode($new_node);
 
-    my %result;
-    $result{'text'} = $kw->textContent();
-    $result{'text'} =~ s/^\s+|\s+$//g;
-    $result{'text'} =~ s/\s+/ /g;
-    $result{'osisID'} = $osisID;
-    return \%result;
-  } if (@kws > 1) {
-    &Error("Too many keywords: $term");
+      my %result;
+      $result{'text'} = $kw->textContent();
+      $result{'text'} =~ s/^\s+|\s+$//g;
+      $result{'text'} =~ s/\s+/ /g;
+      $result{'osisID'} = $osisID;
+      push(@results, \%result);
+    }
+    return \@results;
   } else {
     &Error("Failed to find keyword: $term");
   }
@@ -293,10 +320,11 @@ Please:
 4. Explain your reasoning step-by-step before providing the final tier assigments.
 5. Format your output as escaped CSV having no heading row and exactly these four columns:
 $Columns
-6. The \"ISO-639 $Iso glossary term\" value MUST be the exact term from the glossary entry (so it MUST be the same for ALL rows).
-7. Use the complete OSIS reference format only (e.g., Gen.7.2!note.n1), not human-readable references.
-8. Cross-Check Requirement: Before final output, you must cross-reference your step-by-step reasoning with the final CSV data. If the reasoning identifies a mismatch or a specific tier (e.g., Tier D), the CSV MUST reflect that exact tier. Discrepancies between reasoning and the CSV are a failure of the mechanical application.
-9. Provide a copy button so I can copy the output as raw text.
+6. The " . @Columns[0] . " value MUST be the exact term from the glossary entry (so it MUST be the same for ALL rows).
+7. The " . @Columns[1] . " value MUST be the exact link text found between the '*' symbols (so it may be different for each row).
+8. The " . @Columns[2] . " value MUST be the EXACT osisID that was provied to you (e.g., Gen.7.2!note.n1).
+9. Cross-Check Requirement: Before final output, you must cross-reference your step-by-step reasoning with the final CSV data. If the reasoning identifies a mismatch or a specific tier (e.g., Tier D), the CSV MUST reflect that exact tier. Discrepancies between reasoning and the CSV are a failure of the mechanical application.
+10. Provide a copy button so I can copy the output as raw text.
 
 Goal:
 To assemble a CSV spreadsheet that will help me determine which links to the glossary should be allowed, and which should not.

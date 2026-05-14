@@ -29,15 +29,19 @@ my $Columns = "\"ISO-639 $Iso term\",\"English gloss\",\"Class\",\"Link count\""
 my $totalPromptFiles = 0;
 my $term = 0;
 if (open(INF, "<:encoding(UTF-8)", "$sfm2osisLog")) {
-  my @terms;
+  my %terms;
   while (<INF>) {
     if (/^\s+(\d+)\s+links to (.*?)\s+as\s+/) {
-      push(@terms, "$2 ($1)");
+      my $tot = $1; my $trm = $2;
+      my $dup = $trm =~ /dup(\d+)$/ ? $1 : 0;
+      $trm =~ s/ \(dup\d+\)$//;
+      if (!exists($terms{$trm})) {$terms{$trm} = 0;}
+      $terms{$trm} += $tot;
     }
   }
   if (-e glob("$termsPromptDir/*.txt")) {`rm '$termsPromptDir'/*.txt`;}
   if (! -e "$termsPromptDir") {`mkdir '$termsPromptDir'`;}
-  if (@terms && ! -e "$termsCsv") {
+  if (%terms && ! -e "$termsCsv") {
     &shell("echo '\"term classes requiring validation\",\"(C|D)\"' > $termsCsv", 3);
     &shell("echo '\"A\",\"deterministic phrase\"' >> $termsCsv", 3);
     &shell("echo '\"B\",\"proper name\"' >> $termsCsv", 3);
@@ -46,7 +50,7 @@ if (open(INF, "<:encoding(UTF-8)", "$sfm2osisLog")) {
     &shell("echo '\"\",\"\"' >> $termsCsv", 3);
     &shell("echo '$Columns' >> $termsCsv", 3);
   }
-  @terms = sort(@terms);
+  my @terms = map($_ . ' (' . $terms{$_} . ')', sort keys %terms);
   &Log("\n");
   while (@terms) {
     my @batch = splice(@terms, 0, $aiPromptLength);
