@@ -90,7 +90,7 @@ target, then a different USFM tag should be used instead.</with-param>
     </variable>
     <for-each select="$missing[normalize-space()]">
       <call-template name="Error">
-<with-param name="msg"><value-of select="$DOCWORK"/> reference to missing osisRef segment "<value-of select="."/>"</with-param>
+<with-param name="msg"><value-of select="$DOCWORK"/> reference to missing osisID "<value-of select="."/>"</with-param>
       </call-template>
     </for-each>
 

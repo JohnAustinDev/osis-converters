@@ -1312,13 +1312,15 @@
 
   <!-- Remove these elements entirely (x-chapterLabel is handled by oo:getTocTitle())-->
   <template mode="tran" match="
-    header |
-    chapter[@eID] |
-    verse[@eID] |
-    title[@type='runningHead'] |
-    title[@type='x-chapterLabel'] |
-    index |
-    milestone"/>
+      header |
+      chapter[@eID] |
+      verse[@eID] |
+      title[@type='runningHead'] |
+      title[@type='x-chapterLabel'] |
+      index |
+      milestone">
+      <sequence select="oo:tmpOsisID(@osisID)"/>
+  </template>
 
   <!-- Remove these tags (keeping their content) -->
   <template mode="tran" match="osis | osisText | name | reference[ancestor::title[@type='scope']]">
@@ -1435,8 +1437,7 @@
     <if test="$target = 'fb2' and $tocInstructions = 'no_toc'">
       <!-- No FB2 section will have this osisID, so keep a potential link
       target. -->
-      <fb2:tmpOsisID osisID="{@osisID}"/>
-      <fb2:tmpOsisID osisID="{oc:id(@osisID)}"/>
+      <sequence select="oo:tmpOsisID(@osisID)"/>
     </if>
     <!-- non-Bible chapters also get inline TOC -->
     <if test="
@@ -1478,8 +1479,7 @@
       <when test="$target = 'fb2'">
         <!-- No FB2 section will have this osisID, so keep a potential link
         target. -->
-        <fb2:tmpOsisID osisID="{@osisID}"/>
-        <fb2:tmpOsisID osisID="{oc:id(@osisID)}"/>
+        <sequence select="oo:tmpOsisID(@osisID)"/>
         <fb2:strong>
           <value-of select="oo:getTocTitle(.)"/>
         </fb2:strong>
@@ -1551,10 +1551,7 @@
         <fb2:subtitle>
           <sequence select="oo:getClassedContent(., 'subtitle', $content, '')"/>
         </fb2:subtitle>
-        <if test="@osisID">
-          <fb2:tmpOsisID osisID="{@osisID}"/>
-          <fb2:tmpOsisID osisID="{oc:id(@osisID)}"/>
-        </if>
+        <sequence select="oo:tmpOsisID(@osisID)"/>
       </when>
     </choose>
   </template>
@@ -1848,6 +1845,8 @@
     <param name="preprocessedRefOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
 
+    <next-match/><!-- be sure to keep FB2 osisID -->
+
     <variable name="tocTitle" select="
       oc:titleCase(oo:getTocTitle(oo:origElement(
           .,
@@ -1865,77 +1864,67 @@
         )"/>
     </for-each>
 
-    <choose>
-      <when test="oo:getTocInstructions(.) = 'no_toc'">
-        <if test="$target = 'fb2'">
-          <!-- No FB2 section will have this osisID, so keep a potential link
-          target. -->
-          <fb2:tmpOsisID osisID="{@osisID}"/>
-          <fb2:tmpOsisID osisID="{oc:id(@osisID)}"/>
-        </if>
-      </when>
-      <otherwise>
-        <!-- If this is the first milestone in a Bible, then first write the main
-        TOC (but FB2 creates its own main inline TOC, so it's not needed for FB2). -->
-        <variable name="mainInlineTOC" select="
-          if (@isMainTocMilestone = 'true' and $target != 'fb2')
-          then oc:getMainInlineTOC(
-              $preprocessedMainOSIS,
-              $preprocessedRefOSIS,
-              $combinedGlossary
-            )
-          else ()"/>
-        <variable name="inlineTOC" as="element()*" select="oo:getElementInlineTOC(
-            ., $preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary
-          )"/>
+    <if test="not(oo:getTocInstructions(.) = 'no_toc')">
+      <!-- If this is the first milestone in a Bible, then first write the main
+      TOC (but FB2 creates its own main inline TOC, so it's not needed for FB2). -->
+      <variable name="mainInlineTOC" select="
+        if (@isMainTocMilestone = 'true' and $target != 'fb2')
+        then oc:getMainInlineTOC(
+            $preprocessedMainOSIS,
+            $preprocessedRefOSIS,
+            $combinedGlossary
+          )
+        else ()"/>
+      <variable name="inlineTOC" as="element()*" select="oo:getElementInlineTOC(
+          ., $preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary
+        )"/>
 
-        <!-- The <div><small> was chosen because milestone TOC text is hidden
-        by CSS, and non-CSS implementations should have this text de-emphasized
-        since it is not part of the orignal book -->
-        <if test="$target = 'html'">
-          <html:div>
-            <sequence select="oo:getTocAttributes(.)"/>
-            <html:small>
-              <html:i><value-of select="$tocTitle"/></html:i>
-            </html:small>
-          </html:div>
-        </if>
+      <!-- The <div><small> was chosen because milestone TOC text is hidden
+      by CSS, and non-CSS implementations should have this text de-emphasized
+      since it is not part of the orignal book -->
+      <if test="$target = 'html'">
+        <html:div>
+          <sequence select="oo:getTocAttributes(.)"/>
+          <html:small>
+            <html:i><value-of select="$tocTitle"/></html:i>
+          </html:small>
+        </html:div>
+      </if>
 
-        <!-- If there is a mainInlineTOC or inlineTOC with this milestone TOC,
-        then write out a visible title. -->
-        <if test="$mainInlineTOC or $inlineTOC">
-          <choose>
-            <when test="$target = 'html'">
-              <html:h1><value-of select="$tocTitle"/></html:h1>
-            </when>
-            <!-- FB2 milestone toc title already appears as section title -->
-            <when test="$target = 'fb2'"/>
-          </choose>
-        </if>
+      <!-- If there is a mainInlineTOC or inlineTOC with this milestone TOC,
+      then write out a visible title. -->
+      <if test="$mainInlineTOC or $inlineTOC">
+        <choose>
+          <when test="$target = 'html'">
+            <html:h1><value-of select="$tocTitle"/></html:h1>
+          </when>
+          <!-- FB2 milestone toc title already appears as section title -->
+          <when test="$target = 'fb2'"/>
+        </choose>
+      </if>
 
-        <if test="$mainInlineTOC"><sequence select="$mainInlineTOC"/></if>
+      <if test="$mainInlineTOC"><sequence select="$mainInlineTOC"/></if>
 
-        <!-- If a glossary disambiguation title is needed, then write that out. -->
-        <if test="
-            not($doCombineGlossaries) and
-            oo:getTocLevel(., false()) = 1 and
-            count(distinct-values(
-              $preprocessedRefOSIS//div[@type='glossary']/oc:getDivScopeTitle(.)
-            )) &#62; 1">
-          <variable name="heading">
-            <call-template name="keywordDisambiguationHeading">
-              <with-param name="noName" select="'true'"/>
-            </call-template>
-          </variable>
-          <apply-templates mode="tran" select="$heading"/>
-        </if>
+      <!-- If a glossary disambiguation title is needed, then write that out. -->
+      <if test="
+          not($doCombineGlossaries) and
+          oo:getTocLevel(., false()) = 1 and
+          count(distinct-values(
+            $preprocessedRefOSIS//div[@type='glossary']/oc:getDivScopeTitle(.)
+          )) &#62; 1">
+        <variable name="heading">
+          <call-template name="keywordDisambiguationHeading">
+            <with-param name="noName" select="'true'"/>
+          </call-template>
+        </variable>
+        <apply-templates mode="tran" select="$heading"/>
+      </if>
 
-        <!-- Finally output the inline TOC -->
-        <if test="not(contains(@n, '[inline_toc_last]'))">
-          <sequence select="$inlineTOC"/>
-        </if>
-      </otherwise>
-    </choose>
+      <!-- Finally output the inline TOC -->
+      <if test="not(contains(@n, '[inline_toc_last]'))">
+        <sequence select="$inlineTOC"/>
+      </if>
+    </if>
   </template>
 
   <template mode="tran" priority="3" match="milestone[@type=concat('x-usfm-toc', $TOC)][preceding-sibling::seg[@type='keyword']]">
@@ -2707,6 +2696,15 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         </choose>
       </when>
     </choose>
+  </function>
+
+  <function name="oo:tmpOsisID">
+    <param name="osisID"/>
+
+    <if test="$target = 'fb2' and $osisID">
+      <fb2:tmpOsisID osisID="{string($osisID)}"/>
+      <fb2:tmpOsisID osisID="{oc:id(string($osisID))}"/>
+    </if>
   </function>
 
   <function name="oo:inChapter" as="xs:boolean">

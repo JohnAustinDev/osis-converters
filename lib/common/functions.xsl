@@ -696,8 +696,10 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
   uiDictionary -->
   <function name="oc:glossMenuTitle" as="xs:string">
     <param name="glossary" as="element(div)"/>
-    <variable name="scopeTitle" select="oc:getDivScopeTitle($glossary)"/>
-    <variable name="divTitle" select="oc:getDivTitle($glossary)"/>
+
+    <variable name="scopeTitle" select="oc:getDivScopeTitle($glossary)" as="xs:string"/>
+    <variable name="divTitle" select="oc:getDivTitle($glossary)" as="xs:string"/>
+
     <variable name="glossTitle" select="
       if (not($divTitle)) then 'concat(
           upper-case(oc:keySortLetter($glossary/descendant::reference[1]/string())),
@@ -711,11 +713,11 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
                 or lower-case($divTitle) = root($glossary)//seg[@type='keyword']/lower-case(string())
               )
         then concat($divTitle, '.')
-      else $divTitle"/>
+      else $divTitle" as="xs:string"/>
 
     <if test="not($divTitle)">
       <call-template name="Warn">
-<with-param name="msg">Glossary does not have a title. The following will be used: '<value-of select="$glossTitle"/>'</with-param>
+<with-param name="msg">Glossary does not have a title. The following will be used: '<value-of select="string($glossTitle)"/>'</with-param>
 <with-param name="exp">You may add a title using a \toc<value-of select="$TOC"/> tag or a main title tag to the top of the glossary.</with-param>
       </call-template>
     </if>
