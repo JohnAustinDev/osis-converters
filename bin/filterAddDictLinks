@@ -142,9 +142,9 @@ foreach my $nameNode ($XPC->findnodes(".//dw:entry/dw:name", $dwf)) {
   }
 
   # Enforce exact term if appropriate
-  my $lenlt = $config{'default'}{'links'}{'link exact term if term length less than'};
+  my $lenlt = $config{'default'}{'links'}{'link exact term if term length equal to or less than'};
   my $cntgt = $config{'default'}{'links'}{'link exact term if link count greater than'};
-  if (length($entry) < $lenlt || $cntgt < $terms{$entry}{'count'}) {
+  if (length($entry) <= $lenlt || $cntgt < $terms{$entry}{'count'}) {
     foreach my $matchNode (@matchNodes) {
       my $t = $matchNode->textContent();
       if ($t =~ s/(?<=\\E)\\S\*(\)?)/$1\\b/g) {

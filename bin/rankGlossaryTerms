@@ -83,7 +83,7 @@ Some terms are actually comma separated lists of sub-terms. In these cases you
 MUST evaluate each sub-term individually according to the rubric, and then
 assign the term to ONE tier, which MUST be the lowest tier of any sub-term.
 
-Tier A: Proper Name. Assign ONLY if this term is a proper name.
+Tier A: Proper Name. Assign ONLY if this term is a proper name, and is ONLY a proper name. For instance the English word for 'God' is NOT tier A, because although it can be a proper noun (.i.e. 'God created the universe') it is sometimes not a proper noun (i.e. 'They believe in more than one God'). Terms that fail this test MUST be placed in tier C or D.
 
 Tier B: Deterministic. Assign ONLY if this term meets ANY of these conditions:
   The term is a phrase containing multiple space separated words.

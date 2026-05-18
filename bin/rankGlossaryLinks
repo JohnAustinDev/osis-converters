@@ -93,7 +93,7 @@ if (-e glob("$linksPromptDir/*.txt")) {`rm '$linksPromptDir'/*.txt`;}
 if (! -e "$linksPromptDir") {`mkdir '$linksPromptDir'`;}
 if (! -e "$linksCsv") {
   &shell("echo '\"only link capitalized proper nouns\",\"1\"' > $linksCsv", 3);
-  &shell("echo '\"link exact term if term length less than\",\"4\"' >> $linksCsv", 3);
+  &shell("echo '\"link exact term if term length equal to or less than\",\"4\"' >> $linksCsv", 3);
   &shell("echo '\"link exact term if link count greater than\",\"400\"' >> $linksCsv", 3);
   &shell("echo '\"keep link classes\",\"(A|B)\"' >> $linksCsv", 3);
   &shell("echo '\"A\",\"Excellent\"' >> $linksCsv", 3);
