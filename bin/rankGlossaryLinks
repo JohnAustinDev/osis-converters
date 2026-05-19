@@ -125,13 +125,13 @@ foreach my $term (
   keys %riskyRows
 ) {
   $totalRiskyRows++;
-  my $aP = &readTerm($term, $dictosis);
+  my $aP = &readTermEntriesInGlossary($term, $dictosis);
   foreach my $hP (@{$aP}) {
     my $entryText = $hP->{'text'};
-    my $termID = $hP->{'osisID'};
-    my $dup = $termID =~ /(dup\d+)$/ ? $1 : 0;
+    my $entryID = $hP->{'osisID'};
+    my $dup = $entryID =~ /(dup\d+)$/ ? $1 : 0;
 
-    my $refsAP = &readRefs($termID, $verseContainerOsis);
+    my $refsAP = &readRefsToOsisID($entryID, $verseContainerOsis);
 
     my $single = @$refsAP <= $aiPromptLength;
     my $n = 0;
@@ -160,8 +160,9 @@ foreach my $term (
 ########################################################################
 
 # Take a glossary term and return OSIS dictionary information associated with
-# each osisID for that term (since the same term may have multiple entries).
-sub readTerm {
+# each entry osisID for that term (since the same term may have multiple
+# entries).
+sub readTermEntriesInGlossary {
   my $term = shift;
   my $osisdict = shift;
 
@@ -206,14 +207,14 @@ sub readTerm {
   }
 }
 
-sub readRefs {
-  my $termID = shift;
+sub readRefsToOsisID {
+  my $osisID = shift;
   my $osisvc = shift;
 
   my $osis = $XML_PARSER->parse_file($osisvc);
 
-  my $termIDEnc = encode('utf8', $termID);
-  my $refxpath = "osis:reference[contains(concat(' ', normalize-space(\@osisRef), ' '), ' $termIDEnc ')]";
+  my $osisIDEnc = encode('utf8', $osisID);
+  my $refxpath = "osis:reference[contains(concat(' ', normalize-space(\@osisRef), ' '), ' $osisIDEnc ')]";
 
   my @refNodes = $XPC->findnodes(".//$refxpath", $osis);
 
@@ -221,13 +222,14 @@ sub readRefs {
   foreach my $refNode (@refNodes) {
     my @elems = $XPC->findnodes('ancestor::osis:*[@osisID][1]', $refNode);
     if (!@elems) {
-      &Error("No osisID ancestor for reference to $termID", 1, 1, 1);
+      &Error("No osisID ancestor for reference to $osisID", 1, 1, 1);
     }
     my $elem = @elems[0];
 
     # Mark our reference
+    my $m = '<mARk>';
     my $reftext = $refNode->textContent();
-    $reftext =~ s/^(.*?)(\W*)$/*$1*$2/g;
+    $reftext =~ s/^(.*?)(\W*)$/$m$1$m$2/g;
     my $new_node = $elem->ownerDocument->createTextNode($reftext);
     $refNode->replaceNode($new_node);
 
@@ -235,6 +237,8 @@ sub readRefs {
 
     # Normalized text
     my $text = $elem->textContent();
+    $text =~ s/\*/&amp;/g; # so '*' in text won't cause wrong text selection!
+    $text =~ s/$m/*/g;
     $text =~ s/^\s+|\s+$//g;
     $text =~ s/\s+/ /g;
 
@@ -256,7 +260,7 @@ sub readRefs {
     push(@refs, $osisID . ": " . $text);
   }
   if (!@refs) {
-    &Warn("Failed to find any references to osisID '$termID'");
+    &Warn("Failed to find any references to osisID '$osisID'");
   }
 
   return \@refs;
