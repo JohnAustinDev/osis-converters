@@ -260,7 +260,17 @@ sub readRefsToOsisID {
     push(@refs, $osisID . ": " . $text);
   }
   if (!@refs) {
-    &Warn("Failed to find any references to osisID '$osisID'");
+    if ($osisID =~ /dup\d+/) {
+      &Warn(
+        "Failed to find any references to osisID '$osisID'",
+        "Links to all of an entry's dupN osisIDs defined in DICTMOD have been searched for, and this one has no links to it."
+      );
+    } else {
+      &Error(
+        "Failed to find any references to osisID '$osisID'",
+        "You may be running rankGlossaryLinks using an already link-filtered LOG_sfm2osis.txt file."
+      );
+    }
   }
 
   return \@refs;
