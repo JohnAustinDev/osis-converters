@@ -76,7 +76,16 @@
       <call-template name="preprocessDict"/>
     </variable>
 
-    <!--<result-document href="preprocessedMainOSIS.xml"><sequence select="$preprocessedMainOSIS"/></result-document>-->
+    <!-- write debug OSIS file snapshot just before transformation -->
+    <result-document href="preprocessedOSIS.xml">
+      <for-each select="(
+            $preprocessedMainOSIS,
+            $preprocessedRefOSIS,
+            $combinedGlossary
+          )">
+        <apply-templates mode="prettyprint" select="."/>
+      </for-each>
+    </result-document>
 
     <!-- processProject must be run twice: once to return file names and a second time
     to write the files. Trying to do both at once results in the following error:
@@ -173,6 +182,15 @@
       <with-param name="preprocessedRefOSIS" select="$preprocessedRefOSIS" tunnel="yes"/>
     </call-template>
 
+  </template>
+  <template mode="prettyprint" match="node()|@*">
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
+  </template>
+  <template mode="prettyprint" priority="1" match="element()">
+    <if test="not(preceding::node()[1][matches(string(), '\n$')])">
+      <text>&#xa;</text>
+    </if>
+    <next-match/>
   </template>
 
   <!-- Main process-project loop -->

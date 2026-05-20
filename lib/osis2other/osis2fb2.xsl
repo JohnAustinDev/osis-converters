@@ -369,7 +369,7 @@
       chapter[@sID] |
       div[starts-with(@type, 'x-keyword')] |
       milestone[@type=concat('x-usfm-toc', $TOC)]">
-    <variable name="tocElement" select="
+    <variable name="tocElement" as="element()?" select="
       if (self::div[starts-with(@type, 'x-keyword')])
       then descendant::seg[@type='keyword'][1]
       else ."/>
@@ -567,7 +567,7 @@ heading and all body nodes. -->
             <otherwise>
               <osis:div
                   type="fb2:section"
-                  position="{position()}"
+                  annotation="{if (position() = 1) then 'yes' else 'no'}"
                   osisID="{$osisID}"
                   subType="level{$level}">
                 <sequence select="me:sections(current-group(), $level + 1)"/>

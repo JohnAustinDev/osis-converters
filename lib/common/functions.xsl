@@ -1201,7 +1201,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
                 <when test="self::processing-instruction()"><value-of select="concat('processing-instruction: ', .)"/></when>
                 <otherwise><value-of select="concat('other?:', .)"/></otherwise>
               </choose>
-              <if test="."> (<value-of select="sx:line-number(.)"/>)</if>
+              <if test="."> <value-of select="substring(normalize-space(string(.)), 1, 128)"/><value-of select="if (string-length(.) &#62; 128) then '...' else ''"/></if>
               <text>&#xa;</text>
             </value-of>
           </for-each>

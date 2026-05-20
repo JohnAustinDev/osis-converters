@@ -96,14 +96,14 @@ One or more of the following instructions may be prepended to any TOC title to f
 INSTRUCTION | DESCRIPTION
 ----------- | -----------
 **[levelN]** | Explicitly specifies the TOC hierarchy level. Where `N` is 1 for top level, 2 for second, or 3 for inner-most level. By Default, TOC hierarchy level is determined from OSIS element hierarchy.
-**[no_toc]** | Removes a chapter or keyword from the TOC.
+**[no_toc]** | Prevents a chapter, keyword, or TOC milestone from creating an entry in the TOC. Also see `[inline_toc_last]`.
 **[parent]** | Force a TOC to become a parent by making the following TOC's to have the next highest TOC level.
 **[not_parent]** | Force the children of a TOC entry to follow the parent by inheriting its TOC level.
-**[no_inline_toc]** | Remove a TOC entry from the inline TOC. This could result in broken link errors for non-eBook publications.
+**[no_inline_toc]** | Remove a TOC entry from the inline TOC child-link-menu. This could result in broken link errors for non-eBook publications.
 **[only_inline_toc]** | Remove a TOC entry from the detached TOC.
-**[no_main_inline_toc]** | Remove a TOC entry from the main inline TOC. The main inline TOC appears at the beginning of an ePublication and serves as the overall TOC for the entire publication. The TOC entry may still appear in subsequent inline TOC segments.
-**[inline_toc_first]** | Place inline TOC segments right after the TOC entry. This only applies to DICTMOD, where by default inline TOC segments are placed just before the TOC entry.
-**[inline_toc_last]** | Place inline TOC segments just before the TOC entry. This only applies to MAINMOD, where by default inline TOC segments are placed right after the TOC entry. NOTE: the inline TOC segment will be placed before or after the TOC entry even if it is marked as `[no_toc]`. This allows a `[no_toc]` entry to be used as a placeholder for an inline TOC segment.
+**[no_main_inline_toc]** | Remove a TOC entry from the main inline TOC link-menu. The main inline TOC link-menu appears at the beginning of an ePublication and serves as the overall inline TOC for the entire publication. The TOC entry may still appear in subsequent inline TOC child-link-menus.
+**[inline_toc_first]** | Place the inline TOC child-link-menu at the top of the chapter. This only applies to non-glossary DICTMOD chapters, where by default inline TOC child-link-menus are placed at the end of the chapter.
+**[inline_toc_last]** | Place the inline TOC child-link-menu at the end of the chapter. This only applies to MAINMOD, where by default inline TOC child-link-menus are placed at the beginning of the chapter. OPTIONAL: When an inline TOC child-link-menu is going to be placed at the end of a chapter, a TOC entry marked as `[no_toc]` may be added to the chapter to signify the location where the child-link-menu should be placed, rather than at the end.
 **[bookSubGroup]** | The TOC entry corresponds to a Bible book sub-group introduction; useful for distinguishing it from the main book-group introduction.
 
 
