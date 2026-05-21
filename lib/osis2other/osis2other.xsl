@@ -109,14 +109,14 @@
   inline TOC entry:
 
              ELEMENT                           DESCRIPTION
-  milestone[@osisID]             -From USFM \tocN tags, where N
-           [@type='x-usfm-tocN']  corresponds to this XSLT's $TOC param.
+  milestone[@type='x-usfm-tocN'] -From USFM \tocN tags, where N
+                                  corresponds to this XSLT's $TOC param.
                                   The TOC entry name comes from the "n"
                                   attribute value.
-  chapter[@osisID][@sID]         -From USFM \c tags. The TOC entry name
+  chapter[@osisID]               -From USFM \c tags. The TOC entry name
                                   comes from a following \cl or \cp USFM
                                   tag: title[@type='x-chapterLabel']
-  seg[@osisID][@type='keyword']  -From USFM \k ...\k* tags. The TOC
+  seg[@type='keyword']           -From USFM \k ...\k* tags. The TOC
                                   entry name comes from child text nodes
 
   By default, TOC hierarchy is determined from OSIS hierarchy. However
@@ -247,7 +247,7 @@
     <if test="not($noTitle)">
       <variable name="tocTitle" as="xs:string" select="
           if ($origTitleTocElement)
-          then oc:titleCase(oo:getTocTitle($origTitleTocElement))
+          then oo:getTocTitle($origTitleTocElement)
           else ''"/>
       <if test="$tocTitle">
         <choose>
@@ -684,7 +684,7 @@
                 <value-of select="text()"/>
               </when>
               <otherwise>
-                <value-of select="oc:titleCase(oo:getTocTitle(.))"/>
+                <value-of select="oo:getTocTitle(.)"/>
               </otherwise>
             </choose>
           </variable>
@@ -742,6 +742,8 @@
         ])"/>
   </function>
 
+  <!-- Return true if x is the first TOC milestone in a book and it comes
+  before the first chapter. -->
   <function name="oo:isBookTOC" as="xs:boolean">
     <param name="x" as="node()"/>
     <sequence select="boolean(
@@ -926,7 +928,7 @@
   an explicit TOC level (ie. [level2]).
   These are TOC elements:
     milestone[@type=concat('x-usfm-toc', $TOC)]
-    chapter[@sID]
+    chapter[@osisID]
     seg[@type='keyword'] -->
   <function name="oo:getTocInstructions" as="xs:string*">
     <param name="tocElement" as="node()?"/>
@@ -954,7 +956,7 @@
   the oo:origElement(.) or have an explicit TOC level (ie. [level2]).
   These are TOC elements:
     milestone[@type=concat('x-usfm-toc', $TOC)]
-    chapter[@sID]
+    chapter[@osisID]
     seg[@type='keyword'] -->
   <function name="oo:getTocClasses" as="xs:string*">
     <param name="tocElement" as="node()?"/>
@@ -975,7 +977,7 @@
   or have an explicit TOC level (ie. [level2]).
   These are TOC elements:
     milestone[@type=concat('x-usfm-toc', $TOC)]
-    chapter[@sID]
+    chapter[@osisID]
     seg[@type='keyword'] -->
   <function name="oo:getTocAttributes" as="attribute()+">
     <param name="tocElement" as="element()"/>
@@ -1048,11 +1050,13 @@
   it will override the default title.
   These are TOC elements (others will Error):
     milestone[@type=concat('x-usfm-toc', $TOC)]
-    chapter[@sID]
+    chapter[@osisID]
     seg[@type='keyword'] -->
   <function name="oo:getTocTitle" as="xs:string">
     <param name="tocElement0" as="element()"/>
 
+    <!-- If this is a Bible book's title TOC, then select the TOC milestone
+    that is specified by the TitleTOC config setting. -->
     <variable name="tocElement" as="element()">
       <choose>
         <when test="$tocElement0[self::milestone][oo:isBookTOC($tocElement0)]/
@@ -1069,24 +1073,30 @@
       then replace($tocElement/@n, '^(\[[^\]]*\])+', '')
       else ''"/>
 
-    <variable name="tocTitleOSIS">
+    <variable name="tocTitleOSIS" as="xs:string">
       <choose>
         <!-- milestone TOC -->
-        <when test="$tocElement0[self::milestone[@type=concat('x-usfm-toc', $TOC)]]">
+        <when test="
+            $tocElement0[self::milestone[@type=concat('x-usfm-toc', $TOC)]]">
           <value-of select="$tocTitleEXPLICIT"/>
         </when>
         <!-- chapter TOC -->
-        <when test="$tocElement[self::chapter[@sID]]">
-          <variable name="chapterLabel" as="element(title)?">
-            <apply-templates mode="chapterLabel" select="
-              $tocElement/following::title[@type='x-chapterLabel'][1]
-              [following::chapter[1][@eID=$tocElement/@sID]]" />
-          </variable>
+        <when test="$tocElement[self::chapter]">
+          <variable name="chapterLabelElement" as="element(title)?" select="
+              oo:getChapterLabelElement($tocElement)"/>
           <choose>
-            <when test="$chapterLabel">
-              <value-of select="normalize-space(string($chapterLabel))"/>
+            <when test="$chapterLabelElement">
+              <variable name="children" as="node()*">
+                <for-each select="$chapterLabelElement/node()">
+                  <if test="not(self::note)"><sequence select="."/></if>
+                </for-each>
+              </variable>
+              <value-of select="
+                  normalize-space(string-join($children/string(), ''))"/>
             </when>
-            <otherwise><value-of select="tokenize($tocElement/@sID, '\.')[last()]"/></otherwise>
+            <otherwise>
+              <value-of select="tokenize($tocElement/@osisID, '\.')[last()]"/>
+            </otherwise>
           </choose>
         </when>
         <!-- glossary keyword TOC -->
@@ -1102,7 +1112,9 @@
       </choose>
     </variable>
     <!-- final result -->
-    <value-of select="if ($tocTitleEXPLICIT) then $tocTitleEXPLICIT else $tocTitleOSIS"/>
+    <value-of select="oc:titleCase(
+          if ($tocTitleEXPLICIT) then $tocTitleEXPLICIT else $tocTitleOSIS
+        )"/>
   </function>
   <template mode="chapterLabel" match="node()|@*">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
@@ -1437,11 +1449,10 @@
     </element>
   </template>
 
-  <!-- Remove these elements entirely (x-chapterLabel is handled by oo:getTocTitle())-->
+  <!-- Remove these elements entirely (x-chapterLabel is handled by chapter[@osisID])-->
+  <template mode="tran" priority="5" match="chapter[@eID] | verse[@eID]"/>
   <template mode="tran" match="
       header |
-      chapter[@eID] |
-      verse[@eID] |
       title[@type='runningHead'] |
       title[@type='x-chapterLabel'] |
       index |
@@ -1461,11 +1472,11 @@
     <param name="preprocessedRefOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
     <variable name="tocElement" select="
-      descendant-or-self::*[
-        self::chapter[@sID] or
+      (descendant-or-self::*[
+        self::chapter[@osisID] or
         self::seg[@type='keyword'] or
         self::milestone[@type=concat('x-usfm-toc', $TOC)]
-      ][1]"/>
+      ])[1]"/>
     <choose>
       <when test="$target = 'html'"><next-match/></when>
       <when test="$target = 'fb2'">
@@ -1484,14 +1495,9 @@
           </for-each>
         </variable>
         <if test="$contentNoEmpty">
-          <variable name="title" select="
+          <variable name="title" as="xs:string" select="
               if ($tocElement)
-              then oc:titleCase(oo:getTocTitle(oo:origElement(
-                  $tocElement,
-                  $preprocessedMainOSIS,
-                  $preprocessedRefOSIS,
-                  $combinedGlossary
-                )))
+              then oo:getTocTitle($tocElement)
               else ''"/>
           <variable name="duptitle" as="element(fb2:subtitle)?" select="
               ($contentNoEmpty[self::fb2:subtitle])[1]
@@ -1569,13 +1575,7 @@
           preceding::chapter[@osisID]
         )[last()][contains(@n, '[inline_toc_last]')]">
       <if test="$target = 'fb2'"><fb2:empty-line/></if>
-      <variable name="prevTocTitle" as="xs:string" select="
-          oo:getTocTitle(oo:origElement(
-            .,
-            $preprocessedMainOSIS,
-            $preprocessedRefOSIS,
-            $combinedGlossary
-          ))"/>
+      <variable name="prevTocTitle" as="xs:string" select="oo:getTocTitle(.)"/>
       <sequence select="oo:getElementInlineTOC(
           .,
           oo:isDuplicateTitle(., $current, $prevTocTitle),
@@ -1599,17 +1599,10 @@
         else ()"/>
 
       <if test="$target = 'html'">
-        <variable name="tocTitle" as="xs:string" select="
-            oo:getTocTitle(oo:origElement(
-              .,
-              $preprocessedMainOSIS,
-              $preprocessedRefOSIS,
-              $combinedGlossary
-            ))"/>
         <if test="self::chapter">
           <html:h1>
             <sequence select="oo:getTocAttributes(.)"/>
-            <sequence select="$tocTitle"/>
+            <sequence select="oo:getChapterLabelHTML(.)"/>
           </html:h1>
         </if>
         <if test="self::milestone">
@@ -1619,7 +1612,9 @@
           <html:div>
             <sequence select="oo:getTocAttributes(.)"/>
             <html:small>
-              <html:i><value-of select="$tocTitle"/></html:i>
+              <html:i>
+                <value-of select="oo:getTocTitle(.)"/>
+              </html:i>
             </html:small>
           </html:div>
         </if>
@@ -1901,6 +1896,8 @@
 
   <template mode="tran" match="lb">
     <choose>
+      <!-- Line breaks in titles break epubs and fail validation for FB2 -->
+      <when test="ancestor::title"/>
       <when test="@type = 'x-optional'"/>
       <when test="$target = 'html' and @type = 'x-hr'">
         <html:hr><call-template name="classes"/></html:hr>
@@ -2547,17 +2544,17 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
           normalize-space(string-join(($class, 'xsl-gloss-symbol'), ' '))"/>
         <sequence select="oo:getClassedContent(., $parentName, '†', $ec)"/>
       </when>
-      <when test="oo:inChapter(.) and not(@type='crossReference')">
+      <when test="oo:inBibleChapter(.) and not(@type='crossReference')">
         <variable name="ec" select="
           normalize-space(string-join(($class, 'xsl-fnote-symbol'), ' '))"/>
         <sequence select="oo:getClassedContent(., $parentName, '*', $ec)"/>
       </when>
-      <when test="oo:inChapter(.) and @subType='x-parallel-passage'">
+      <when test="oo:inBibleChapter(.) and @subType='x-parallel-passage'">
         <variable name="ec" select="
           normalize-space(string-join(($class, 'xsl-crnote-symbol'), ' '))"/>
         <sequence select="oo:getClassedContent(., $parentName, '•', $ec)"/>
       </when>
-      <when test="oo:inChapter(.)">
+      <when test="oo:inBibleChapter(.)">
         <variable name="ec" select="
           normalize-space(string-join(($class, 'xsl-crnote-symbol'), ' '))"/>
         <sequence select="oo:getClassedContent(., $parentName, '+', $ec)"/>
@@ -2840,13 +2837,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       <!-- Is duplicate if there is a chapter label already. -->
       <when test="
           if ($topTocElement[self::chapter])
-          then boolean(
-            if ($topTocElement/@sID)
-            then $topTocElement/following::title[@type='x-chapterLabel'][1][
-                following::chapter[1][@eID = $topTocElement/@sID]
-              ]
-            else $topTocElement/descendant::title[@type='x-chapterLabel'][1]
-          )
+          then boolean(oo:getChapterLabelElement($topTocElement))
           else false()">
         <value-of select="true()"/>
       </when>
@@ -2862,6 +2853,37 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       </when>
       <otherwise>
         <value-of select="false()"/>
+      </otherwise>
+    </choose>
+  </function>
+
+  <function name="oo:getChapterLabelElement" as="element(title)?">
+    <param name="chapterElement" as="element(chapter)"/>
+
+    <sequence select="
+      if ($chapterElement/@sID)
+      then $chapterElement/following::title[@type='x-chapterLabel'][1][
+          following::chapter[1][@eID = $chapterElement/@sID]
+        ]
+      else $chapterElement/descendant::title[@type='x-chapterLabel'][1]"/>
+  </function>
+
+  <function name="oo:getChapterLabelHTML" as="node()*">
+    <param name="tocChapterElement" as="element(chapter)"/>
+
+    <variable name="chapterLabelElement" as="element(title)?" select="
+        if ($tocChapterElement[self::chapter])
+        then oo:getChapterLabelElement($tocChapterElement)
+        else ()" />
+    <choose>
+      <when test="$chapterLabelElement">
+        <!-- x-chapterLabel titles may contain other elements such as
+        footnotes which need to be output. Must select /node() because
+        title[@type='x-chapterLabel'] is filtered out in tran mode! -->
+        <apply-templates mode="tran" select="$chapterLabelElement/node()"/>
+      </when>
+      <otherwise>
+        <value-of select="oo:getTocTitle($tocChapterElement)"/>
       </otherwise>
     </choose>
   </function>
@@ -2886,7 +2908,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </choose>
   </function>
 
-  <function name="oo:inChapter" as="xs:boolean">
+  <function name="oo:inBibleChapter" as="xs:boolean">
     <param name="node" as="node()"/>
     <variable name="workid" select="root($node)/osis/osisText[1]/@osisIDWork"/>
     <value-of select="
@@ -2913,7 +2935,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       not($reference/@osisRef = ($REF_BibleTop, $REF_DictTop)) and
       not(contains($reference/@osisRef, '!')) and
       not($reference[ancestor::note]) and
-      oo:inChapter($reference)"/>
+      oo:inBibleChapter($reference)"/>
   </function>
 
   <function name="oo:targetElement" as="element()*">

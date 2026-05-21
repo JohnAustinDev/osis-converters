@@ -366,7 +366,7 @@
   grouping into fb2 sections during the sectionsFB2 mode. These section elements
   will solely determine the FB2 detached TOC. -->
   <template mode="removeDivsFB2" priority="2" match="
-      chapter[@sID] |
+      chapter[@osisID] |
       div[starts-with(@type, 'x-keyword')] |
       milestone[@type=concat('x-usfm-toc', $TOC)]">
     <variable name="tocElement" as="element()?" select="
