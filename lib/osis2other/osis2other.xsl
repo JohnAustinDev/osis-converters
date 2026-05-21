@@ -1602,7 +1602,19 @@
         <if test="self::chapter">
           <html:h1>
             <sequence select="oo:getTocAttributes(.)"/>
-            <sequence select="oo:getChapterLabelHTML(.)"/>
+            <variable name="chapterLabelElement" as="element(title)?" select="
+                oo:getChapterLabelElement(.)"/>
+            <choose>
+              <when test="$chapterLabelElement">
+                <!-- x-chapterLabel titles may contain other elements such as
+                footnotes which need to be output. Must select /node() because
+                title[@type='x-chapterLabel'] is filtered out in tran mode! -->
+                <apply-templates mode="#current" select="$chapterLabelElement/node()"/>
+              </when>
+              <otherwise>
+                <value-of select="oo:getTocTitle(.)"/>
+              </otherwise>
+            </choose>
           </html:h1>
         </if>
         <if test="self::milestone">
@@ -2194,13 +2206,14 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     <variable name="workid" select="tokenize(@osisRef, ':')[1]"/>
     <variable name="osisRef" select="tokenize(@osisRef, ':')[2]"/>
 
-    <!-- The isScriptureRef variable is used to get a big speedup, by not looking up the
-    Scripture reference targets to get their source file. The cost is that references to
-    main-OSIS file osisIDs other than $REF_BibleTop and those containing '!' will fail. -->
+    <!-- The isScriptureRef variable is used to get a big speedup, by not
+    looking up the Scripture reference targets to get their source file. The
+    cost is that references to the main OSIS file are limited to Scripture
+    references, $REF_BibleTop and osisIDs containing '!'. -->
     <variable name="isScriptureRef" as="xs:boolean" select="
+      $isBible and
+      $workid = $MAINMOD and
       @osisRef != $REF_BibleTop and
-      $preprocessedMainOSIS/osis/osisText/header/work[@osisWork = $workid]/
-        type[@type='x-bible'] and
       not(contains(@osisRef, '!'))"/>
     <variable name="targetElement" as="element()*">
       <choose>
@@ -2238,12 +2251,12 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
             </when>
             <when test="count($targetElement) = 0">
               <call-template name="Error">
-<with-param name="msg">Target osisID not found for <value-of select="oc:printNode(.)"/> when osisRef is <value-of select="@osisRef"/></with-param>
+<with-param name="msg">Target osisID not found for <value-of select="oc:printNode(.)"/></with-param>
               </call-template>
             </when>
             <otherwise>
               <call-template name="Error">
-<with-param name="msg">Multiple targets with same osisID (<value-of select="count($targetElement)"/>) when osisRef is <value-of select="@osisRef"/></with-param>
+<with-param name="msg">Multiple targets have the same osisID (<value-of select="count($targetElement)"/>) when osisID is <value-of select="@osisRef"/></with-param>
               </call-template>
             </otherwise>
           </choose>
@@ -2868,26 +2881,6 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       else $chapterElement/descendant::title[@type='x-chapterLabel'][1]"/>
   </function>
 
-  <function name="oo:getChapterLabelHTML" as="node()*">
-    <param name="tocChapterElement" as="element(chapter)"/>
-
-    <variable name="chapterLabelElement" as="element(title)?" select="
-        if ($tocChapterElement[self::chapter])
-        then oo:getChapterLabelElement($tocChapterElement)
-        else ()" />
-    <choose>
-      <when test="$chapterLabelElement">
-        <!-- x-chapterLabel titles may contain other elements such as
-        footnotes which need to be output. Must select /node() because
-        title[@type='x-chapterLabel'] is filtered out in tran mode! -->
-        <apply-templates mode="tran" select="$chapterLabelElement/node()"/>
-      </when>
-      <otherwise>
-        <value-of select="oo:getTocTitle($tocChapterElement)"/>
-      </otherwise>
-    </choose>
-  </function>
-
   <function name="oo:isInlineTocLast" as="xs:boolean">
     <param name="tocElement" as="element()?"/>
 
@@ -2941,6 +2934,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   <function name="oo:targetElement" as="element()*">
     <param name="osisRef" as="xs:string"/>
     <param name="docs" as="node()+"/>
+
     <variable name="workid" select="tokenize($osisRef, ':')[1]"/>
     <variable name="osisRef" select="tokenize($osisRef, ':')[2]"/>
     <for-each select="$docs/osis/osisText[@osisIDWork = $workid]">
