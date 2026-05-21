@@ -325,7 +325,6 @@ body:not(.Ps) .xsl-toc-entry.osis-chapter {
   padding: 0px 0px 0px 0px;
   margin: 0px 0px 0px 0px;
 }
-.xsl-nonBibleChapterLabel {}
 .xsl-chapter-number {
   font-size: 2em;
   font-weight:bold;

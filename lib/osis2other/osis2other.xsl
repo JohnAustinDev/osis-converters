@@ -176,6 +176,7 @@
             <sequence select="
               oo:getInlineToc(
                 $origTitleTocElement,
+                false(),
                 $listElementDoc,
                 true(),
                 $preprocessedRefOSIS
@@ -186,6 +187,7 @@
           <sequence select="
             oo:getInlineToc(
               $origTitleTocElement,
+              false(),
               $listElementDoc,
               true(),
               $preprocessedRefOSIS
@@ -197,71 +199,79 @@
 
   <function name="oo:getElementInlineTOC" as="element()*">
     <param name="tocElement" as="element()"/>
+    <param name="noTitle" as="xs:boolean"/>
     <param name="preprocessedMainOSIS"/>
     <param name="preprocessedRefOSIS"/>
     <param name="combinedGlossary"/>
-    <param name="noTitle" as="xs:boolean"/>
 
-    <variable name="origTocElement" as="element()" select="
-        oo:origElement(
-          $tocElement,
-          $preprocessedMainOSIS,
-          $preprocessedRefOSIS,
-          $combinedGlossary
-        )"/>
-    <variable name="listElementDoc">
-      <sequence select="oo:getTocListItems(
-          $origTocElement,
-          $preprocessedMainOSIS,
-          $preprocessedRefOSIS,
-          $combinedGlossary
-        )"/>
-    </variable>
-
-    <if test="count($listElementDoc/*)">
-      <variable name="origTitleTocElement" select="
-          if ($noTitle)
-          then ()
-          else $origTocElement"/>
-      <sequence select="
-          oo:getInlineToc(
-            $origTitleTocElement,
-            $listElementDoc,
-            false(),
-            $preprocessedRefOSIS
+    <if test="
+        not($isBible and $tocElement[self::chapter]) and
+        not($tocElement[self::seg])">
+      <variable name="origTocElement" as="element()" select="
+          oo:origElement(
+            $tocElement,
+            $preprocessedMainOSIS,
+            $preprocessedRefOSIS,
+            $combinedGlossary
           )"/>
+      <variable name="listElementDoc">
+        <sequence select="oo:getTocListItems(
+            $origTocElement,
+            $preprocessedMainOSIS,
+            $preprocessedRefOSIS,
+            $combinedGlossary
+          )"/>
+      </variable>
+
+      <if test="count($listElementDoc/*)">
+        <sequence select="
+            oo:getInlineToc(
+              $origTocElement,
+              $noTitle,
+              $listElementDoc,
+              false(),
+              $preprocessedRefOSIS
+            )"/>
+      </if>
     </if>
   </function>
 
   <function name="oo:getInlineToc" as="element()*">
     <param name="origTitleTocElement" as="element()?"/>
+    <param name="noTitle" as="xs:boolean"/>
     <param name="listdoc" as="document-node()"/>
     <param name="isTopTOC" as="xs:boolean"/>
     <param name="preprocessedRefOSIS"/>
 
-    <variable name="tocTitle" as="xs:string" select="
-        if ($origTitleTocElement)
-        then oc:titleCase(oo:getTocTitle($origTitleTocElement))
-        else ''"/>
-    <if test="$tocTitle">
-      <choose>
-        <when test="$target = 'html'">
-          <html:h1><value-of select="$tocTitle"/></html:h1>
-        </when>
-        <!-- FB2 milestone toc title already appears as section title -->
-        <when test="$target = 'fb2'">
-          <fb2:subtitle>
-            <sequence select="
-              oo:getClassedContent(
-                $origTitleTocElement,
-                'subtitle',
-                $tocTitle,
-                ''
-              )"/>
-          </fb2:subtitle>
-        </when>
-      </choose>
-      <!-- If a glossary disambiguation subtitle is needed, now output that. -->
+    <!-- Output an inline TOC title (unless $noTitle is true) -->
+    <if test="not($noTitle)">
+      <variable name="tocTitle" as="xs:string" select="
+          if ($origTitleTocElement)
+          then oc:titleCase(oo:getTocTitle($origTitleTocElement))
+          else ''"/>
+      <if test="$tocTitle">
+        <choose>
+          <when test="$target = 'html'">
+            <html:h1><value-of select="$tocTitle"/></html:h1>
+          </when>
+          <!-- FB2 milestone toc title already appears as section title -->
+          <when test="$target = 'fb2'">
+            <fb2:subtitle>
+              <sequence select="
+                oo:getClassedContent(
+                  $origTitleTocElement,
+                  'subtitle',
+                  $tocTitle,
+                  ''
+                )"/>
+            </fb2:subtitle>
+          </when>
+        </choose>
+      </if>
+    </if>
+
+    <!-- If a glossary disambiguation subtitle is needed, now output that. -->
+    <if test="$origTitleTocElement">
       <for-each select="$origTitleTocElement">
         <if test="
             not($doCombineGlossaries) and
@@ -1532,84 +1542,109 @@
     </choose>
   </template>
 
-  <!-- Verses -->
-  <template mode="tran" priority="3" match="verse[@sID] | hi[@subType='x-alternate']">
-    <param name="doWrite" tunnel="yes"/>
-    <!-- skip verse numbers that are immediately followed by p, lg, l, list, item or canonical title,
-    since their templates will write verse numbers inside themselves using WriteEmbededVerse-->
-    <if test="$doWrite or not(self::*[
-        following-sibling::*[1]
-        [self::p or self::lg or self::l or self::list or self::item or self::title[@canonical='true']]
-      ])">
-      <next-match/>
-    </if>
-  </template>
-  <template mode="tran" match="verse[@sID]"><call-template name="WriteVerseNumber"/></template>
-
-  <!-- Chapters -->
-  <template mode="tran" match="chapter[@sID and @osisID]">
+  <!-- TOC Chapters and Milestones -->
+  <!-- TOC milestones do not output visible titles, while TOC chapters output
+  any corresponding title[@type='x-chapterLabel']. However, IF there are TOC
+  children, any resulting inline TOC WILL include a title UNLESS that title is
+  a duplicate title. An inline TOC title is considered a duplicate title when
+  it is an inline_toc_first, or an inline_toc_last apparent as first, and its
+  title matches the fb2:section title, the chapter label, or a regular title.
+  Regardless, all regular TOC elements (i.e. not having [no_toc]) will always
+  output an element having the attributes required by the Calibre converter
+  plugin call. -->
+  <template mode="tran" priority="2" match="milestone[@type=concat('x-usfm-toc', $TOC)] | chapter[@osisID]">
     <param name="preprocessedMainOSIS" tunnel="yes"/>
     <param name="preprocessedRefOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
-    <variable name="tocInstructions" select="oo:getTocInstructions(.)"/>
-    <variable name="chapterLabel" select="
-      following::title[@type='x-chapterLabel'][1]
-      [following::chapter[1][@eID=current()/@sID]]" />
-    <variable name="tocTitle0" select="oo:getTocTitle(.)"/>
-    <variable name="tocTitle">
-      <choose>
-        <when test="$chapterLabel">
-          <!-- x-chapterLabel titles may contain other elements such as
-          footnotes which need to be output -->
-          <apply-templates mode="tran" select="$chapterLabel/node()"/>
-        </when>
-        <otherwise>
-          <value-of select="$tocTitle0"/>
-        </otherwise>
-      </choose>
-    </variable>
-    <if test="$target = 'html'">
-      <html:h1>
-        <sequence select="oo:getTocAttributes(.)"/>
-        <sequence select="$tocTitle"/>
-      </html:h1>
-    </if>
-    <if test="$target = 'fb2' and $tocInstructions = 'no_toc'">
-      <!-- No FB2 section will have this osisID, so keep a potential link
-      target. -->
-      <sequence select="oo:tmpOsisID(@osisID)"/>
-    </if>
-    <!-- non-Bible chapters also get inline TOC -->
-    <if test="
-        oc:docWork(.) != $MAINMOD and
-        not($tocInstructions = 'no_toc')">
-      <choose>
-        <when test="$target = 'html'">
-          <html:h1 class="xsl-nonBibleChapterLabel">
-            <value-of select="$tocTitle"/>
+
+    <!-- be sure to keep FB2 osisID -->
+    <sequence select="oo:tmpOsisID(@osisID)"/>
+
+    <!-- A preceding [inline_toc_last] TOC element writes its inline TOC just
+    before this TOC element (even if this one is [no_toc]). -->
+    <variable name="current" as="element()" select="."/>
+    <for-each select="
+        (
+          preceding::milestone[@type=concat('x-usfm-toc', $TOC)] |
+          preceding::chapter[@osisID]
+        )[last()][contains(@n, '[inline_toc_last]')]">
+      <if test="$target = 'fb2'"><fb2:empty-line/></if>
+      <variable name="prevTocTitle" as="xs:string" select="
+          oo:getTocTitle(oo:origElement(
+            .,
+            $preprocessedMainOSIS,
+            $preprocessedRefOSIS,
+            $combinedGlossary
+          ))"/>
+      <sequence select="oo:getElementInlineTOC(
+          .,
+          oo:isDuplicateTitle(., $current, $prevTocTitle),
+          $preprocessedMainOSIS,
+          $preprocessedRefOSIS,
+          $combinedGlossary
+        )"/>
+    </for-each>
+
+    <if test="not(oo:getTocInstructions(.) = 'no_toc')">
+      <!-- If this is the first milestone in a Bible, then first write the main
+      TOC (but FB2 creates its own main inline TOC, so it's not needed for FB2). -->
+      <variable name="mainInlineTOC" select="
+        if (@isMainTocMilestone = 'true' and $target != 'fb2')
+        then oc:getMainInlineTOC(
+            .,
+            $preprocessedMainOSIS,
+            $preprocessedRefOSIS,
+            $combinedGlossary
+          )
+        else ()"/>
+
+      <if test="$target = 'html'">
+        <variable name="tocTitle" as="xs:string" select="
+            oo:getTocTitle(oo:origElement(
+              .,
+              $preprocessedMainOSIS,
+              $preprocessedRefOSIS,
+              $combinedGlossary
+            ))"/>
+        <if test="self::chapter">
+          <html:h1>
+            <sequence select="oo:getTocAttributes(.)"/>
+            <sequence select="$tocTitle"/>
           </html:h1>
-          <sequence select="oo:getElementInlineTOC(
-              .,
-              $preprocessedMainOSIS,
-              $preprocessedRefOSIS,
-              $combinedGlossary,
-              true()
-            )"/>
-        </when>
-        <when test="$target = 'fb2'">
-          <sequence select="oo:getElementInlineTOC(
-              .,
-              $preprocessedMainOSIS,
-              $preprocessedRefOSIS,
-              $combinedGlossary,
-              true()
-            )"/>
-        </when>
-      </choose>
+        </if>
+        <if test="self::milestone">
+          <!-- The <div><small> was chosen because milestone TOC text is hidden
+          by CSS, and non-CSS implementations should have this text de-
+          emphasized since it is not part of the orignal book -->
+          <html:div>
+            <sequence select="oo:getTocAttributes(.)"/>
+            <html:small>
+              <html:i><value-of select="$tocTitle"/></html:i>
+            </html:small>
+          </html:div>
+        </if>
+      </if>
+
+      <if test="$mainInlineTOC"><sequence select="$mainInlineTOC"/></if>
+
+      <!-- Finally output the inline TOC (now or later) -->
+      <if test="not(contains(@n, '[inline_toc_last]'))">
+        <!-- No inline TOC title is requested if $mainInlineTOC is ouput since
+        getMainInlineTOC includes the title. -->
+        <sequence select="
+          oo:getElementInlineTOC(
+            .,
+            $mainInlineTOC or oo:isDuplicateTitle(., ., ''),
+            $preprocessedMainOSIS,
+            $preprocessedRefOSIS,
+            $combinedGlossary
+          )"/>
+      </if>
     </if>
+
   </template>
 
-  <!-- Glossary keywords -->
+  <!-- TOC Glossary keywords -->
   <template mode="tran" priority="2" match="seg[@type='keyword']">
     <choose>
       <when test="$target = 'html'">
@@ -1628,6 +1663,20 @@
       </when>
     </choose>
   </template>
+
+  <!-- Verses -->
+  <template mode="tran" priority="3" match="verse[@sID] | hi[@subType='x-alternate']">
+    <param name="doWrite" tunnel="yes"/>
+    <!-- skip verse numbers that are immediately followed by p, lg, l, list, item or canonical title,
+    since their templates will write verse numbers inside themselves using WriteEmbededVerse-->
+    <if test="$doWrite or not(self::*[
+        following-sibling::*[1]
+        [self::p or self::lg or self::l or self::list or self::item or self::title[@canonical='true']]
+      ])">
+      <next-match/>
+    </if>
+  </template>
+  <template mode="tran" match="verse[@sID]"><call-template name="WriteVerseNumber"/></template>
 
   <!-- Glossary entries -->
   <template mode="tran" priority="3" match="div[starts-with(@type,'x-keyword')]">
@@ -1979,88 +2028,6 @@
 
   <template mode="tran" match="list[@subType='x-navmenu'][following-sibling::*[1][self::chapter[@eID]]]">
     <if test="$eachChapterIsFile"><next-match/></if>
-  </template>
-
-  <!-- TOC milestones do not output visible titles. However, IF there are TOC
-  children, any resulting inline TOC WILL include a title (although, since FB2
-  always outputs an fb2:section title, a matching inline_toc_first title or
-  regular title, will be supressed). Regardless, all regular TOC milestones
-  (i.e. not having [no_toc]) will always output a small invisible (by CSS) TOC
-  title that is required by the Calibre converter plugin call. -->
-  <template mode="tran" priority="2" match="milestone[@type=concat('x-usfm-toc', $TOC)]">
-    <param name="currentTask" tunnel="yes"/>
-    <param name="preprocessedMainOSIS" tunnel="yes"/>
-    <param name="preprocessedRefOSIS" tunnel="yes"/>
-    <param name="combinedGlossary" tunnel="yes"/>
-
-    <next-match/><!-- be sure to keep FB2 osisID -->
-
-    <!-- A preceding [inline_toc_last] milestone writes its inline TOC just
-    before this TOC milestone, even if this milestone is [no_toc]. -->
-    <for-each select="
-        preceding::milestone[@type=concat('x-usfm-toc', $TOC)][1]
-        [contains(@n, '[inline_toc_last]')]">
-      <if test="$target = 'fb2'"><fb2:empty-line/></if>
-      <sequence select="oo:getElementInlineTOC(
-          .,
-          $preprocessedMainOSIS,
-          $preprocessedRefOSIS,
-          $combinedGlossary,
-          false()
-        )"/>
-    </for-each>
-
-    <if test="not(oo:getTocInstructions(.) = 'no_toc')">
-      <!-- If this is the first milestone in a Bible, then first write the main
-      TOC (but FB2 creates its own main inline TOC, so it's not needed for FB2). -->
-      <variable name="mainInlineTOC" select="
-        if (@isMainTocMilestone = 'true' and $target != 'fb2')
-        then oc:getMainInlineTOC(
-            .,
-            $preprocessedMainOSIS,
-            $preprocessedRefOSIS,
-            $combinedGlossary
-          )
-        else ()"/>
-
-      <!-- No inline TOC title is requested if $mainInlineTOC is ouput since
-      getMainInlineTOC includes the title. Also FB2 inline TOC titles were
-      already output as section titles. -->
-      <variable name="inlineTOC" as="element()*" select="
-          oo:getElementInlineTOC(
-            .,
-            $preprocessedMainOSIS,
-            $preprocessedRefOSIS,
-            $combinedGlossary,
-            $mainInlineTOC or $target = 'fb2'
-          )"/>
-
-      <!-- The <div><small> was chosen because milestone TOC text is hidden
-      by CSS, and non-CSS implementations should have this text de-emphasized
-      since it is not part of the orignal book -->
-      <if test="$target = 'html'">
-        <html:div>
-          <sequence select="oo:getTocAttributes(.)"/>
-          <html:small>
-            <html:i><value-of select="
-                oc:titleCase(oo:getTocTitle(oo:origElement(
-                  .,
-                  $preprocessedMainOSIS,
-                  $preprocessedRefOSIS,
-                  $combinedGlossary
-                )))"/></html:i>
-          </html:small>
-        </html:div>
-      </if>
-
-      <if test="$mainInlineTOC"><sequence select="$mainInlineTOC"/></if>
-
-      <!-- Finally output the inline TOC (now or later) -->
-      <if test="not(contains(@n, '[inline_toc_last]'))">
-        <sequence select="$inlineTOC"/>
-      </if>
-    </if>
-
   </template>
 
   <template mode="tran" priority="3" match="milestone[@type=concat('x-usfm-toc', $TOC)][preceding-sibling::seg[@type='keyword']]">
@@ -2845,6 +2812,58 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       <fb2:tmpOsisID osisID="{string($osisID)}"/>
       <fb2:tmpOsisID osisID="{oc:id(string($osisID))}"/>
     </if>
+  </function>
+
+  <!-- An inline TOC title must not be output if it duplicates an already
+  visible title. So this function checks if it is a duplicate or not. -->
+  <function name="oo:isDuplicateTitle" as="xs:boolean">
+    <param name="topTocElement" as="element()"/>
+    <param name="bottomTocElement" as="element()?"/>
+    <param name="tocTitle" as="xs:string?"/>
+
+    <choose>
+      <!-- Only inline_toc_first or apparently first, might be duplicate. -->
+      <when test="
+          matches($topTocElement, '\[inline_toc_last\]') or
+          string-length(string-join(
+            $topTocElement/following::node()
+              [not(self::title)]
+              [. &#60;&#60; $bottomTocElement],
+            ' '
+          )) &#62; 500">
+        <value-of select="false()"/>
+      </when>
+      <!-- Is duplicate if there is an FB2 section title already. -->
+      <when test="$target = 'fb2'">
+        <value-of select="true()"/>
+      </when>
+      <!-- Is duplicate if there is a chapter label already. -->
+      <when test="
+          if ($topTocElement[self::chapter])
+          then boolean(
+            if ($topTocElement/@sID)
+            then $topTocElement/following::title[@type='x-chapterLabel'][1][
+                following::chapter[1][@eID = $topTocElement/@sID]
+              ]
+            else $topTocElement/descendant::title[@type='x-chapterLabel'][1]
+          )
+          else false()">
+        <value-of select="true()"/>
+      </when>
+      <!-- Is duplicate if is there is a duplicate title. -->
+      <when test="
+          lower-case($tocTitle) =
+          (
+            $topTocElement/
+            following::title[. &#60;&#60; $bottomTocElement]/
+            lower-case(string(.))
+          )">
+        <value-of select="true()"/>
+      </when>
+      <otherwise>
+        <value-of select="false()"/>
+      </otherwise>
+    </choose>
   </function>
 
   <function name="oo:isInlineTocLast" as="xs:boolean">

@@ -31,9 +31,6 @@
 
   <import href="./common/functions.xsl"/>
 
-  <!-- Is this OSIS file an x-bible (not a Children's Bible or dict)? -->
-  <variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
-
   <variable name="combinedGlossaryKeywords"
       select="//div[@type='glossary']
               //div[starts-with(@type, 'x-keyword')]

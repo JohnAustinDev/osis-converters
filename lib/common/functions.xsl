@@ -65,6 +65,8 @@
   <variable name="isGenericBook" select="boolean(//osis:header/
                                          osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
                                          osis:type[@type='x-generic-book'])"/>
+  <variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
+  
   <key name="osisID" match="*[@osisID]" use="if (not($isChildrensBible) and not($isGenericBook))
                                              then tokenize(@osisID, '\s+')
                                              else @osisID"/>
