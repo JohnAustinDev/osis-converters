@@ -1549,15 +1549,15 @@
   </template>
 
   <!-- TOC Chapters and Milestones -->
-  <!-- TOC milestones do not output visible titles, while TOC chapters output
-  any corresponding title[@type='x-chapterLabel']. However, IF there are TOC
-  children, any resulting inline TOC WILL include a title UNLESS that title is
-  a duplicate title. An inline TOC title is considered a duplicate title when
-  it is an inline_toc_first, or an inline_toc_last apparent as first, and its
-  title matches the fb2:section title, the chapter label, or a regular title.
-  Regardless, all regular TOC elements (i.e. not having [no_toc]) will always
-  output an element having the attributes required by the Calibre converter
-  plugin call. -->
+  <!-- TOC milestones never output visible titles, but TOC chapters always do.
+  Futhermore, IF there are TOC children, any resulting inline TOC WILL also
+  include a title UNLESS that title is a duplicate title. An inline TOC title
+  is considered a duplicate title when it is an inline_toc_first, or an
+  inline_toc_last apparent as first, and its title matches the fb2:section
+  title, the chapter title, or a regular title. Regardless, all regular TOC
+  elements (i.e. not having [no_toc] or [only_inline_toc]) when rendered to
+  html, will always output an element having the toclevel-N attribute required
+  by the Calibre converter plugin call. -->
   <template mode="tran" priority="2" match="milestone[@type=concat('x-usfm-toc', $TOC)] | chapter[@osisID]">
     <param name="preprocessedMainOSIS" tunnel="yes"/>
     <param name="preprocessedRefOSIS" tunnel="yes"/>

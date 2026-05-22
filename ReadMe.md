@@ -215,7 +215,7 @@ ENTRY | DESCRIPTION
 **SubPublicationTitle\[\S+\]** | The localized title of a particular sub-publication. The scope of the sub-publication must appear between the square brackets (see `./bin/convert -h SUB-PUBLICATIONS` and see `./bin/convert -h scope`).
 **TOC** | A number from 1 to 3 indicating which SFM tag to use for generating the table of contents: `\toc1`, `\toc2` or `\toc3`. Default is `2`.
 **TextSource (CW)** | Indicates a name or URL for the source of the text.
-**TitleCase** | A number from 0 to 2 selecting letter casing for table of contents titles: 0 is as-is, 1 is Like This, 2 is LIKE THIS.
+**TitleCase** | A number from 0 to 3 selecting letter casing for table of contents titles: 0 is as-is, 1 is Like This, 2 is LIKE THIS, 3 is Like this.
 **TitleTOC** | A number from 1 to 3 indicating which Bible book title to use for the TOC and single book publications: 1 uses the BookNames.xml `long` name or the book `\toc1` tag, 2 uses the BookNames.xml `short` name or the book `\toc2` tag, and 3 uses the BookNames.xml `abbr` name or book `\toc3` tag. Default is `2`.
 **TranslationTitle (L)** | A localized title for the entire translation.
 **VAGRANT (S)** | Set to `true` to force osis-converters to run in a Vagrant VirtualBox virtual machine.

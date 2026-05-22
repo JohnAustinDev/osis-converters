@@ -66,7 +66,7 @@
                                          osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
                                          osis:type[@type='x-generic-book'])"/>
   <variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
-  
+
   <key name="osisID" match="*[@osisID]" use="if (not($isChildrensBible) and not($isGenericBook))
                                              then tokenize(@osisID, '\s+')
                                              else @osisID"/>
@@ -463,9 +463,15 @@
     <variable name="title" select="replace($title0, '^(\[[^\]]*\])+', '')"/>
     <choose>
       <when test="$TitleCase = '1'">
-        <value-of select="string-join(oc:capitalize-first(tokenize($title, '\s+')), ' ')"/>
+        <value-of select="
+            string-join(
+              oc:capitalize-first(tokenize(lower-case($title), '\s+')),
+              ' '
+            )"/>
       </when>
       <when test="$TitleCase = '2'"><value-of select="upper-case($title)"/></when>
+      <when test="$TitleCase = '3'"><value-of select="
+            oc:capitalize-first(lower-case($title))"/></when>
       <otherwise><value-of select="$title"/></otherwise>
     </choose>
   </function>
@@ -756,11 +762,34 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <variable name="glossaryMenuTitle" select="oc:glossMenuTitle($glossary)"/>
 
     <variable name="glossarySorted">
-      <for-each select="$glossary/descendant::div[starts-with(@type,'x-keyword')]">
-        <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending"
-          collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
-        <sequence select="."/>
-      </for-each>
+      <choose>
+        <when test="
+            every $i
+            in $glossary/
+              descendant::div[starts-with(@type,'x-keyword')]/
+              descendant::seg[@type='keyword']/string()
+            satisfies matches($i, '^\d+')">
+          <for-each select="
+              $glossary/descendant::div[starts-with(@type,'x-keyword')]">
+            <sort data-type="number" order="ascending" select="
+                xs:decimal(replace(
+                  ./descendant::seg[@type='keyword'][1]/string(),
+                  '^(\d+).*?$',
+                  '$1'
+                ))" />
+            <sequence select="."/>
+          </for-each>
+        </when>
+        <otherwise>
+          <for-each select="
+              $glossary/descendant::div[starts-with(@type,'x-keyword')]">
+            <sort data-type="text" order="ascending" select="
+                oc:keySort(./descendant::seg[@type='keyword'])"
+              collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
+            <sequence select="."/>
+          </for-each>
+        </otherwise>
+      </choose>
     </variable>
 
     <text>&#xa;</text>
