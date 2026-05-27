@@ -1457,7 +1457,7 @@
       title[@type='x-chapterLabel'] |
       index |
       milestone">
-      <sequence select="oo:tmpOsisID(@osisID)"/>
+      <sequence select="oo:writeOsisID(@osisID)"/>
   </template>
 
   <!-- Remove these tags (keeping their content) -->
@@ -1564,7 +1564,7 @@
     <param name="combinedGlossary" tunnel="yes"/>
 
     <!-- be sure to keep FB2 osisID -->
-    <sequence select="oo:tmpOsisID(@osisID)"/>
+    <sequence select="oo:writeOsisID(@osisID)"/>
 
     <!-- A preceding [inline_toc_last] TOC element writes its inline TOC just
     before this TOC element (even if this one is [no_toc]). -->
@@ -1663,7 +1663,7 @@
       <when test="$target = 'fb2'">
         <!-- No FB2 section will have this osisID, so keep a potential link
         target. -->
-        <sequence select="oo:tmpOsisID(@osisID)"/>
+        <sequence select="oo:writeOsisID(@osisID)"/>
         <fb2:strong>
           <value-of select="oo:getTocTitle(.)"/>
         </fb2:strong>
@@ -1749,7 +1749,7 @@
         <fb2:subtitle>
           <sequence select="oo:getClassedContent(., 'subtitle', $content, '')"/>
         </fb2:subtitle>
-        <sequence select="oo:tmpOsisID(@osisID)"/>
+        <sequence select="oo:writeOsisID(@osisID)"/>
       </when>
     </choose>
   </template>
@@ -2815,12 +2815,19 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </choose>
   </function>
 
-  <function name="oo:tmpOsisID">
+  <!-- When elements having osisIDs are dropped during a transformation,
+  the osisID will to persist in case it's needed for a reference target.-->
+  <function name="oo:writeOsisID">
     <param name="osisID"/>
 
-    <if test="$target = 'fb2' and $osisID">
-      <fb2:tmpOsisID osisID="{string($osisID)}"/>
-      <fb2:tmpOsisID osisID="{oc:id(string($osisID))}"/>
+    <if test="$osisID">
+      <if test="$target = 'html'">
+        <html:span id="{oc:id(string($osisID))}"/>
+      </if>
+      <if test="$target = 'fb2'">
+        <fb2:tmpOsisID osisID="{string($osisID)}"/>
+        <fb2:tmpOsisID osisID="{oc:id(string($osisID))}"/>
+      </if>
     </if>
   </function>
 
