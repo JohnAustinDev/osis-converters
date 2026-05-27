@@ -232,7 +232,7 @@ our @TOC_INSTRUCTIONS = ('[levelN]', '[no_toc]', '[parent]', '[not_parent]',
 our %ID_DIRECTIVES = (
     'placement' => ['location', '<identifier>', 'x-unknown'],
     'mark'      => ['scope', 'feature', 'cover', 'conversion',
-                    'not_conversion']);
+                    'not_conversion', 'subType']);
 
 our @VSYS_INSTRUCTIONS = ('VSYS_MOVED', 'VSYS_MISSING', 'VSYS_EXTRA',
     'VSYS_EMPTY', 'VSYS_MOVED_ALT', 'VSYS_MISSING_FN',

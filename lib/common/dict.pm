@@ -249,7 +249,21 @@ sub validateAddDictLinksXML {
   }
 
   $x = "//*[local-name()!='addDictLinks'][local-name()!='entry']/@*";
-  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'XPATH', 'notXPATH', 'version', 'dontLink', 'notExplicit', 'onlyExplicit');
+  @allowed = (
+    'onlyNewTestament',
+    'onlyOldTestament',
+    'context',
+    'notContext',
+    'multiple',
+    'osisRef',
+    'XPATH',
+    'notXPATH',
+    'version',
+    'dontLink',
+    'notExplicit',
+    'onlyExplicit',
+    'subType'
+  );
   foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
   my @badAttribs = $XPC->findnodes($x, $dwf);
   if (@badAttribs) {

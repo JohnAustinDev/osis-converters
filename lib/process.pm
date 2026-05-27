@@ -19,7 +19,7 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD,
-    $TMPDIR, $NO_OUTPUT_DELETE, $DEBUG, $OSIS, $XPC, $XML_PARSER,
+    $TMPDIR, $NO_OUTPUT_DELETE, $DEBUG, $OSIS, $XPC, $XML_PARSER, $ONS,
     $READLAYER, $DICTIONARY_NotXPATH_Default, $OSISSCHEMA, $MOD_OUTDIR);
 
 require("$SCRD/lib/addFootnoteLinks.pm");
@@ -300,6 +300,51 @@ appears you have not duplicated this material in the glossary.",
     else {
       &Warn("This OSIS file already has " .
         @navmenus." navmenus and so this step will be skipped!");
+    }
+  }
+
+  # If DWF files are without BIBLE_TOP or DICT_TOP then add them.
+  foreach my $type ('main', 'dict') {
+    my $toc = &conf('TOC');
+    my $osxml = $XML_PARSER->parse_file($OSIS);
+    my $dwfile = &getDWF($type, 1);
+    if ($dwfile) {
+      my $dwxml = $XML_PARSER->parse_file($dwfile);
+      my $tid = $MOD eq $MAINMOD ? 'BIBLE_TOP' : 'DICT_TOP';
+      my $aP = $XPC->findnodes(
+        "//dw:entry[contains(\@osisRef, '$MOD:$tid')]",
+        $dwxml
+      );
+      if (!@{$aP}[0]) {
+        $aP = $XPC->findnodes(
+          "/descendant::osis:milestone[\@osisID='$tid']",
+          $osxml
+        );
+        my $osisRef = @{$aP}[0] && @{$aP}[0]->nextSibling
+          ? $MOD . ':' . @{$aP}[0]->nextSibling->getAttribute('osisID')
+          : '';
+        if ($osisRef) {
+          &Note("Found $MOD $tid before $osisRef. (DWFTOP)\n");
+          $aP = $XPC->findnodes(
+            "//dw:entry[contains(concat(' ', \@osisRef, ' '), ' $osisRef ')]",
+            $dwxml
+          );
+          if (@{$aP}[0]) {
+            @{$aP}[0]->setAttribute(
+              'osisRef',
+              @{$aP}[0]->getAttribute('osisRef') . " $MOD:$tid"
+            );
+            &writeXMLFile($dwxml, $dwfile);
+            &Note("Appended $tid to " . @{$aP}[0]->getAttribute('osisRef') . ". (DWFTOP)\n");
+          } else {
+            &Warn("CF_addDictLinks.xml has no entry with osisRef $osisRef to append $tid to. (DWFTOP)\n");
+          }
+        } else {
+          &ErrorBug("$MOD $tid milestone was not found.");
+        }
+      } else {
+        &Note("Found $tid in " . @{$aP}[0]->getAttribute('osisRef') . ". (DWFTOP)\n");
+      }
     }
   }
 

@@ -127,6 +127,7 @@ DIRECTIVE | DESCRIPTION
 **cover (M)** | Takes a `( yes \| no )` value. A value of yes marks OSIS div elements to receive a cover image when scope matches an available cover image. Use in conjunction with the scope ID directive.
 **conversion (M)** | Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversions not listed, the OSIS div will be removed. Conversion options are `( none \| ebooks \| html \| sword \| gobible \| book \| comp \| full)`.
 **not_conversion (M)** | Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ebooks \| html \| sword \| gobible \| CF_addDictLinks \| CF_addDictLinks.bible \| CF_addDictLinks.dict \| book \| comp \| full)`.
+**subType (M)** | Marks OSIS div elements with a subType name attribute. Mainly this attribute just facilitates grouping of entries in the default CF_addDictLinks.xml files that are created during the sfm2osis conversion. The subType value must match `x-([^\s])+` for the OSIS to validate.
 
 
 ### SPECIAL FEATURES 

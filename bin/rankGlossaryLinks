@@ -21,7 +21,6 @@ $Data::Dumper::Sortkeys = 1;
 
 our ($MAININPD, $MAINMOD, $DICTMOD, $XML_PARSER, $XPC);
 
-my $aiPromptLength = &conf('ARG_AiPromptLength') || 100;
 my $termsPromptDirName = 'ai_prompt_terms';
 my $linksPromtDirName = 'ai_prompt_links';
 my $termsCsvName = 'terms.csv';
@@ -60,6 +59,8 @@ close $fh;
 &Log("\n");
 &Note("Configuration:");
 &Log(Dumper($config{'default'}) . "\n");
+
+my $aiPromptLength = $config{'default'}{'terms per prompt'} || 100;
 
 # Determine which terms are high risk and select them for AI validation
 my %riskyRows; # term => priority

@@ -42,11 +42,12 @@ if (open(INF, "<:encoding(UTF-8)", "$sfm2osisLog")) {
   if (-e glob("$termsPromptDir/*.txt")) {`rm '$termsPromptDir'/*.txt`;}
   if (! -e "$termsPromptDir") {`mkdir '$termsPromptDir'`;}
   if (%terms && ! -e "$termsCsv") {
-    &shell("echo '\"term classes requiring validation\",\"(C|D)\"' > $termsCsv", 3);
-    &shell("echo '\"A\",\"deterministic phrase\"' >> $termsCsv", 3);
-    &shell("echo '\"B\",\"proper name\"' >> $termsCsv", 3);
-    &shell("echo '\"C\",\"domain/technical term\"' >> $termsCsv", 3);
-    &shell("echo '\"D\",\"generic lexical term\"' >> $termsCsv", 3);
+    &shell("echo '\"terms per prompt\",\"100\"' > $termsCsv", 3);
+    &shell("echo '\"term classes requiring validation\",\"(C|D)\"' >> $termsCsv", 3);
+    &shell("echo '\"A\",\"Proper Name\"' >> $termsCsv", 3);
+    &shell("echo '\"B\",\"Deterministic\"' >> $termsCsv", 3);
+    &shell("echo '\"C\",\"Moderate validation required\"' >> $termsCsv", 3);
+    &shell("echo '\"D\",\"Validation required\"' >> $termsCsv", 3);
     &shell("echo '\"\",\"\"' >> $termsCsv", 3);
     &shell("echo '$Columns' >> $termsCsv", 3);
   }
