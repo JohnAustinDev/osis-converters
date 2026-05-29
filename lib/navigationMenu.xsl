@@ -31,34 +31,57 @@
 
   <import href="./common/functions.xsl"/>
 
-  <variable name="combinedGlossaryKeywords"
-      select="//div[@type='glossary']
-              //div[starts-with(@type, 'x-keyword')]
-              [not(@type = 'x-keyword-duplicate')]
-              [not(ancestor::div[@scope='NAVMENU'])]
-              [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
+  <variable name="combinedGlossaryKeywords" select="
+      //div[@type='glossary']
+      //div[starts-with(@type, 'x-keyword')]
+      [not(@type = 'x-keyword-duplicate')]
+      [not(ancestor::div[@scope='NAVMENU'])]
+      [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
 
-  <variable name="firstTOC" select="/descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
-      [not(ancestor::div[@annotateType='x-feature' and @annotateRef='NO_TOC'])][1]"/>
+  <variable name="firstTOC" select="
+      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
+      [not(ancestor::div[@annotateType='x-feature' and @annotateRef='NO_TOC'])]
+      [1]"/>
 
-  <variable name="myREF_intro" select="if ($INT_feature) then $REF_introductionINT else ''"/>
+  <variable name="myREF_intro" select="
+      if ($INT_feature)
+      then $REF_introductionINT
+      else ''"/>
 
-  <variable name="mainGlossaryID" select="oc:sarg('mainGlossaryID', /, 'false')"/>
+  <variable name="mainGlossaryID" select="
+      oc:sarg('mainGlossaryID', /, 'false')"/>
 
-  <variable name="doCombineGlossaries" select="oc:conf('CombineGlossaries', /) = 'true'"/>
+  <variable name="doCombineGlossaries" select="
+      oc:conf('CombineGlossaries', /) = 'true'"/>
 
-  <variable name="noDictTopMenu" select="oc:sarg('noDictTopMenu', /,
-      if ($doCombineGlossaries and not($INT_feature)) then 'yes' else 'no')"/>
+  <variable name="noDictTopMenu" select="
+      oc:sarg(
+        'noDictTopMenu',
+        /,
+        if ($doCombineGlossaries and not($INT_feature))
+          then 'yes'
+          else 'no'
+      )"/>
 
-  <variable name="glossaryNavmenuLinks" select="/osis[$DICTMOD]/osisText/header/work/description
-      [matches(@type, '^x\-config\-GlossaryNavmenuLink\[[1-9]\]')]/string()"/>
-  <variable name="dictLinks" as="xs:string*" select="if (not($DICTMOD)) then ()
-      else if (count($glossaryNavmenuLinks)) then $glossaryNavmenuLinks
+  <variable name="glossaryNavmenuLinks" select="
+      /osis[$DICTMOD]/osisText/header/work/description
+      [matches(@type, '^x\-config\-GlossaryNavmenuLink\[[1-9]\]')]
+      /string()"/>
+
+  <variable name="dictLinks" as="xs:string*" select="
+      if (not($DICTMOD))
+      then ()
+      else if (count($glossaryNavmenuLinks))
+      then $glossaryNavmenuLinks
       else oc:decodeOsisRef(tokenize($REF_dictionary, ':')[2])"/>
-  <variable name="dictLinksEnc" as="xs:string*" select="for $t in $dictLinks return me:glossaryNavmenuLink($t)"/>
+
+  <variable name="dictLinksEnc" as="xs:string*" select="
+      for $t in $dictLinks return me:glossaryNavmenuLink($t)"/>
+
   <variable name="docroot" select="/"/>
 
-  <variable name="customize" as="element(div)*" select="/osis/osisText/div[starts-with(@osisID, 'NAVMENU.')]"/>
+  <variable name="customize" as="element(div)*" select="
+      /osis/osisText/div[starts-with(@osisID, 'NAVMENU.')]"/>
 
   <template mode="identity introMenu" name="identity" match="node()|@*" >
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
@@ -90,11 +113,13 @@
 
       <!-- Place navmenu before chapter[eID] and anything selected by prependNavMenu -->
       <when test="($DICTMOD and $prependNavMenu) or ($isBible and boolean(self::chapter[@eID]))">
-        <sequence select="oc:getNavmenuLinks(
-          oc:getPrevChapterEncRef(.),
-          oc:getNextChapterEncRef(.),
-          if (not($myREF_intro)) then '' else concat('&amp;osisRef=', $myREF_intro),
-          $dictLinksEnc)"/>
+        <sequence select="
+            oc:getNavmenuLinks(
+              oc:getPrevChapterEncRef(.),
+              oc:getNextChapterEncRef(.),
+              if (not($myREF_intro)) then '' else concat('&amp;osisRef=', $myREF_intro),
+              $dictLinksEnc
+            )"/>
         <copy><apply-templates mode="identity" select="node()|@*"/></copy>
         <if test="not(self::chapter) or boolean(self::chapter[matches(@eID, '\.1$')])">
           <call-template name="Note">
@@ -107,10 +132,13 @@
       <when test="self::div[@type='x-aggregate-subentry']">
         <copy>
           <apply-templates mode="identity" select="node()|@*"/>
-          <sequence select="oc:getNavmenuLinks(
-            me:keywordEncREF('prev', .),
-            me:keywordEncREF('next', .),
-            '', ())"/>
+          <sequence select="
+            oc:getNavmenuLinks(
+              me:keywordEncREF('prev', .),
+              me:keywordEncREF('next', .),
+              '',
+              ()
+            )"/>
         </copy>
       </when>
 
@@ -120,11 +148,19 @@
           ('x-navmenu-glossaries', 'x-navmenu-all-letters', 'x-navmenu-all-keywords')"/>
         <copy>
           <apply-templates select="node()|@*"/>
-          <sequence select="oc:getNavmenuLinks(
-            if ($skipPrevNext)       then '' else me:applyMenuContext(., me:keywordEncREF('prev', .)),
-            if ($skipPrevNext)       then '' else me:applyMenuContext(., me:keywordEncREF('next', .)),
-            if (not($myREF_intro))   then '' else me:applyMenuContext(., concat('&amp;osisRef=', $myREF_intro)),
-            for $t in $dictLinksEnc return me:applyMenuContext(., $t) )"/>
+          <sequence select="
+              oc:getNavmenuLinks(
+                if ($skipPrevNext)
+                  then ''
+                  else me:applyMenuContext(., me:keywordEncREF('prev', .)),
+                if ($skipPrevNext)
+                  then ''
+                  else me:applyMenuContext(., me:keywordEncREF('next', .)),
+                if (not($myREF_intro))
+                  then ''
+                  else me:applyMenuContext(., concat('&amp;osisRef=', $myREF_intro)),
+                for $t in $dictLinksEnc return me:applyMenuContext(., $t)
+              )"/>
         </copy>
         <call-template name="Note">
 <with-param name="msg">Added navmenu to keyword: <value-of select="descendant::seg[@type='keyword']"/></with-param>

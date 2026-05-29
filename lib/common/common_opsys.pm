@@ -1659,7 +1659,7 @@ sub Error {
   my $doDie = shift;
 
   if ($CONF) {
-    my $ne = &conf('ARG_noErr');
+    my $ne = &conf('ARG_noErr') || &conf('ARG_noError');
     if ($ne && $errmsg =~ /$ne/) {return &Warn($errmsg, $solmsg, 1);}
   }
 
@@ -1697,10 +1697,14 @@ sub Warn {
   my $warnmsg = shift;
   my $checkmsg = shift;
   my $flag = shift;
+  my $dropIfNoWarning = shift;
 
   if ($CONF) {
     my $nw = &conf('ARG_noWarning');
-    if ($nw && $warnmsg =~ /$nw/) {return &Note($warnmsg, 1);}
+    if ($nw && $warnmsg =~ /$nw/) {
+      if (!$dropIfNoWarning) {return &Note($warnmsg, 1);}
+      else {return;}
+    }
   }
 
   # Terms beginning with <- will not have a leading line-break

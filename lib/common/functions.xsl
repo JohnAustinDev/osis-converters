@@ -570,14 +570,18 @@
           </osis:item>
         </if>
 
-        <sequence select="oc:getMenuItem(
-          concat($encREF_intro, $defaultTextINTRO),
-          'x-introduction-link' )"/>
+        <sequence select="
+          oc:getMenuItem(
+            concat($encREF_intro, $defaultTextINTRO),
+            'x-introduction-link'
+          )"/>
 
         <for-each select="$encREF_dictList">
-          <sequence select="oc:getMenuItem(
-            .,
-            'x-dictionary-link')"/>
+          <sequence select="
+            oc:getMenuItem(
+              .,
+              'x-dictionary-link'
+            )"/>
         </for-each>
 
         <osis:lb/>
@@ -587,48 +591,54 @@
     </if>
   </function>
   <function name="oc:getMenuItem" as="element(item)?">
-    <param name="encodedRef" as="xs:string"/>
+    <param name="linkAttributes" as="xs:string"/>
     <param name="subType" as="xs:string"/>
-    <if test="$encodedRef">
+    <if test="$linkAttributes">
       <osis:item subType="{$subType}">
         <osis:p type="x-right" subType="x-introduction">
-          <sequence select="oc:getMenuLink($encodedRef)"/>
+          <sequence select="oc:getMenuLink($linkAttributes)"/>
         </osis:p>
       </osis:item>
     </if>
   </function>
   <function name="oc:getMenuLink" as="node()">
-    <param name="encodedRef" as="xs:string"/>
-    <variable name="text" select="replace($encodedRef, '^.*?&amp;text=([^&amp;]+).*?$', '$1')"/>
+    <param name="linkAttributes" as="xs:string"/>
+    <variable name="text" select="
+        replace($linkAttributes, '^.*?&amp;text=([^&amp;]+).*?$', '$1')"/>
     <if test="not($text)">
       <call-template name="ErrorBug">
-<with-param name="msg">getMenuLink link has no text: <value-of select="$encodedRef"/></with-param>
+<with-param name="msg">getMenuLink link has no text: <value-of select="$linkAttributes"/></with-param>
 <with-param name="die">yes</with-param>
       </call-template>
     </if>
-    <if test="not(matches($encodedRef, '&amp;disabled=1')) and
-              not(matches($encodedRef, '&amp;(osisRef|href)=[^&amp;]+'))">
+    <if test="
+        not(matches($linkAttributes, '&amp;disabled=1')) and
+        not(matches($linkAttributes, '&amp;(osisRef|href)=[^&amp;]+'))">
       <call-template name="ErrorBug">
-<with-param name="msg">getMenuLink link has no target (osisRef or href): <value-of select="$encodedRef"/></with-param>
+<with-param name="msg">getMenuLink link has no target (osisRef or href): <value-of select="$linkAttributes"/></with-param>
 <with-param name="die">yes</with-param>
       </call-template>
     </if>
     <choose>
-      <when test="matches($encodedRef, '&amp;disabled=1')">
+      <when test="matches($linkAttributes, '&amp;disabled=1')">
         <osis:seg subType="x-disabled">
           <value-of select="oc:titleCase($text)"/>
         </osis:seg>
       </when>
       <otherwise>
         <osis:reference>
-          <analyze-string select="$encodedRef" regex="&amp;([A-Za-z]+)=([^&amp;]+)">
+          <analyze-string
+              select="$linkAttributes"
+              regex="&amp;([A-Za-z]+)=([^&amp;]+)">
             <matching-substring>
               <if test="not(regex-group(1) = ('disabled', 'text'))">
                 <attribute name="{regex-group(1)}" select="regex-group(2)"/>
               </if>
             </matching-substring>
           </analyze-string>
-          <if test="matches($encodedRef, concat('&amp;osisRef=', $DICTMOD, ':'))">
+          <if test="
+              matches($linkAttributes, concat('&amp;osisRef=', $DICTMOD, ':'))
+            ">
             <attribute name="type">x-glosslink</attribute>
             <attribute name="subType">x-target_self</attribute>
           </if>

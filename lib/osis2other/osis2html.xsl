@@ -368,21 +368,34 @@
               <variable name="myglossary" select="if ($doCombineGlossaries) then
                 $combinedGlossary/descendant::div[@type='glossary'][1] else $fileNodes[1]/ancestor::div[@type='glossary']"/>
               <variable name="glossFile" select="if ($myglossary) then oo:getFileName($myglossary) else ''"/>
-              <apply-templates mode="tran"
-                  select="oc:getNavmenuLinks(
-                    if ($previousFile != $fileName and $prevIsSameDiv) then
-                        concat('&amp;href=/html/', $previousFile)  else '',
-                    if ($followingFile != $fileName and $follIsSameDiv) then
-                        concat('&amp;href=/html/', $followingFile) else '',
-                    if ($introFile != $fileName) then
-                        concat('&amp;href=/html/', $introFile) else '',
-                    if ($glossFile != $fileName and $glossFile and
-                        not($myglossary[@annotateType='x-feature' and @annotateRef='NO_TOC'])) then (
-                        concat('&amp;href=/html/', $glossFile, '&amp;text=',
-                                if ($myglossary)
-                                then oc:getDivTitle($myglossary)
-                                else $uiDictionary)
-                        ) else ())">
+              <apply-templates mode="tran" select="
+                  oc:getNavmenuLinks(
+                    if ($previousFile != $fileName and $prevIsSameDiv)
+                      then concat('&amp;href=/html/', $previousFile)
+                      else '',
+                    if ($followingFile != $fileName and $follIsSameDiv)
+                      then concat('&amp;href=/html/', $followingFile)
+                      else '',
+                    if ($introFile != $fileName)
+                      then concat('&amp;href=/html/', $introFile)
+                      else '',
+                    if (
+                      $glossFile != $fileName and $glossFile and
+                      not($myglossary[@annotateType='x-feature' and
+                      @annotateRef='NO_TOC'])
+                    )
+                      then (
+                        concat(
+                            '&amp;href=/html/',
+                            $glossFile,
+                            '&amp;text=',
+                            if ($myglossary)
+                              then oc:getDivTitle($myglossary)
+                              else $uiDictionary
+                          )
+                        )
+                      else ()
+                  )">
                 <with-param name="contextFile" select="$fileName" tunnel="yes"/>
               </apply-templates>
             </if>

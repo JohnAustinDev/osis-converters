@@ -172,7 +172,15 @@ DWF_OSISREF:
         last;
       }
     }
-    if (!$match) {&Warn("Missing entry \"$osisID\" in $addDictLinks", "That you don't want any links to this entry."); $allmatch = 0;}
+    if (!$match) {
+      &Warn(
+        "Missing entry \"$osisID\" in $addDictLinks",
+        "That you don't want any links to this entry.",
+        0,
+        1
+      );
+      $allmatch = 0;
+    }
   }
 
   # Check that all DWF osisRefs are included as keywords in dictosis
@@ -333,7 +341,8 @@ sub explicitGlossaryIndexes {
       my %data = ('success' => 0, 'linktext' => $report);
       push(@EXPLICIT_GLOSSARY, \%data);
 
-      &Error(@{&atomizeContext(&getNodeContext($r))}[0]." Failed to link explicit glossary reference: $report",
+      &Error(
+"Node of " . @{&atomizeContext(&getNodeContext($r))}[0] . ": Failed to link explicit glossary reference: $report",
 "<>Add the proper entry to CF_addDictLinks.xml to match this text
 and create a hyperlink to the correct glossary entry. If desired you can
 use the attribute 'onlyExplicit' to match this term only where it is
@@ -428,8 +437,8 @@ sub searchForGlossaryLinks {
   my $glossary;
   if (&isDict($node)) {
 
-    $glossary->{'node_context'} = @{&atomizeContext(&getNodeContext($node))}[0];
-    if (!$glossary->{'node_context'}) {next;}
+    $glossary->{'self_context'} = @{&atomizeContext(&getNodeContext($node))}[0];
+    if (!$glossary->{'self_context'}) {next;}
 
     my @gs; foreach my $gsp ( split(/\s+/, &getGlossaryScopeAttribute($node)) ) {
       push(@gs, ($gsp =~ /\-/ ? @{&scopeToBooks($gsp, &getOsisVersification($node))}:$gsp));
@@ -442,7 +451,7 @@ sub searchForGlossaryLinks {
       }
       $NoOutboundLinks{'haveBeenRead'}++;
     }
-    if ($NoOutboundLinks{&entry2osisRef($MOD, $glossary->{'node_context'})}) {next;}
+    if ($NoOutboundLinks{&entry2osisRef($MOD, $glossary->{'self_context'})}) {next;}
   }
 
   my $container = ($isIndex || $node->nodeType == XML::LibXML::XML_TEXT_NODE ? $node->parentNode:$node);
@@ -524,8 +533,14 @@ sub searchGlossaryLinkAtIndex {
       }
       return $iel;
     }
-
-    &Error("Explicit link could not be matched because of: '$fail'");
+    if (&conf('ARG_debugMatch')) {
+      &Error("Explicit link failed to match '".&conf('ARG_debugMatch')."' because of: '$fail'");
+    } else {
+      &Error(
+        "An explicit link failed to match (see following error).",
+        "In config.conf, set ARG_debugMatch to the content of the match element that was expected to match (ie. ARG_debugMatch=/\\b(\\QFoobar\\E)\\b/. Then re-run, and this error message will provide a reason for the match failure."
+      );
+    }
     return $indexElement;
   }
 
@@ -644,6 +659,9 @@ sub searchText {
 
   my $matchedPattern = '';
 
+  my $dbm = &conf('ARG_debugMatch');
+  my $debugMatch = $dbm ? &matchRegex($dbm) : '';
+
   # Cache match related info
   if (!@MATCHES) {
     my $debug;
@@ -651,7 +669,7 @@ sub searchText {
     $NT_CONTEXTSP =  &getContextAttributeHash('NT');
     foreach my $m ($XPC->findnodes('//dw:match', &getDWF())) {
       my %minfo;
-      if (!&matchRegex($m, \%minfo)) {next;}
+      if (!&matchRegex($m->textContent, \%minfo)) {next;}
       $minfo{'node'} = $m;
       $minfo{'notExplicit'} = &attributeContextValue('notExplicit', $m);
       $minfo{'onlyExplicit'} = &attributeContextValue('onlyExplicit', $m);
@@ -698,9 +716,9 @@ sub searchText {
   #  'true'  - No limitation on number of links.
   # The $contextNoteKey var allows a link within a note, even if it was
   # already linked in the given context.
-  if ($glossaryHP->{'node_context'}) {
-    $context = $glossaryHP->{'node_context'};
-    $multiples_context = $glossaryHP->{'node_context'};
+  if ($glossaryHP->{'self_context'}) {
+    $context = $glossaryHP->{'self_context'};
+    $multiples_context = $glossaryHP->{'self_context'};
   }
   else {
     $context = &bibleContext($node);
@@ -727,16 +745,16 @@ sub searchText {
     my $key = $m->{'key'}.$contextNoteKey;
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
     if (defined($index) && $m->{'notExplicit'} && ($m->{'notExplicit'} == 1 || &inContext($context, $m->{'notExplicit'}))) {
-      if ($failReasonP) {$$failReasonP = 'notExplicit';}
+      if ($failReasonP && $m->{'regex'} eq $debugMatch) {$$failReasonP = 'notExplicit';}
       &dbg("filtered at 00\n\n"); next;
     }
     elsif (!defined($index) && $m->{'onlyExplicit'} && ($m->{'onlyExplicit'} == 1 || &inContext($context, $m->{'onlyExplicit'}))) {
-      if ($failReasonP) {$$failReasonP = 'onlyExplicit';}
+      if ($failReasonP && $m->{'regex'} eq $debugMatch) {$$failReasonP = 'onlyExplicit';}
       &dbg("filtered at 01\n\n"); next;
     }
     else {
-      if ($glossaryHP->{'node_context'} && $m->{'skipRootID'}{&getRootID($glossaryHP->{'node_context'})}) {
-        if ($failReasonP) {$$failReasonP = 'node_context';}
+      if ($glossaryHP->{'self_context'} && $m->{'skipRootID'}{&getRootID($glossaryHP->{'self_context'})}) {
+        if ($failReasonP && $m->{'regex'} eq $debugMatch) {$$failReasonP = 'self_context';}
         &dbg("05\n\n"); next; # never add glossary links to self
       }
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n\n"); next;}
@@ -751,28 +769,28 @@ sub searchText {
         my $ic  = &inContext($context, $m->{'contexts'});
         my $igc = ($gs ? &inContext($glossaryHP->{'scopes_context'}, $m->{'contexts'}):0);
         if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {
-          if ($failReasonP) {$$failReasonP = 'scopes_context';}
+          if ($failReasonP && $m->{'regex'} eq $debugMatch) {$$failReasonP = 'scopes_context';}
           &dbg("filtered at 50 (gs=$gs, ic=$ic, igc=$igc)\n\n");
           next;
         }
       }
       if ($m->{'notContext'}) {
         if (&inContext($context, $m->{'notContexts'})) {
-          if ($failReasonP) {$$failReasonP = 'notContext';}
+          if ($failReasonP && $m->{'regex'} eq $debugMatch) {$$failReasonP = 'notContext';}
           &dbg("filtered at 60\n\n"); next;
         }
       }
       if ($m->{'XPATH'}) {
         my $tst = @{$XPC->findnodes($m->{'XPATH'}, $node)}[0];
         if (!$tst) {
-          if ($failReasonP) {$$failReasonP = 'XPATH';}
+          if ($failReasonP && $m->{'regex'} eq $debugMatch) {$$failReasonP = 'XPATH';}
           &dbg("filtered at 70\n\n"); next;
         }
       }
       if ($m->{'notXPATH'}) {
         my $tst = @{$XPC->findnodes($m->{'notXPATH'}, $node)}[0];
         if ($tst) {
-          if ($failReasonP) {$$failReasonP = 'notXPATH';}
+          if ($failReasonP && $m->{'regex'} eq $debugMatch) {$$failReasonP = 'notXPATH';}
           &dbg("filtered at 80\n\n"); next;
         }
       }
@@ -780,7 +798,7 @@ sub searchText {
 
     my $is; my $ie;
     if (!&searchMatch($m, $textP, \$is, \$ie, $index)) {
-      if ($failReasonP) {$$failReasonP = 'searchMatch';}
+      if ($failReasonP && $m->{'regex'} eq $debugMatch) {$$failReasonP = 'searchMatch';}
       next;
     }
     if ($is == $ie) {
@@ -899,12 +917,11 @@ sub searchMatch {
 }
 
 sub matchRegex {
-  my $matchElem = shift;
+  my $rawRegex = shift;
   my $infoP = shift;
 
-  my $p = $matchElem->textContent;
-  if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {
-    &ErrorBug("Bad match regex: $p !~ /^\s*\/(.*)\/(\w*)\s*\$/");
+  if ($rawRegex !~ /^\s*\/(.*)\/(\w*)\s*$/) {
+    &ErrorBug("Bad match regex: $rawRegex !~ /^\s*\/(.*)\/(\w*)\s*\$/");
     &dbg("80\n");
     return;
   }
@@ -936,13 +953,17 @@ sub matchRegex {
     return;
   }
 
+  if (!$infoP) {
+    return $pm;
+  }
+
   # save the regex for later use
   foreach my $f (split(//, $pf)) {
     if ($f eq 'i') {
       $infoP->{'flags'}{$f}++;
     }
     else {
-      &Error("Only the 'i' flag is currently supported: ".$matchElem->textContent."\n");
+      &Error("Only the 'i' flag is currently supported: $rawRegex\n");
     }
   }
   $infoP->{'regex'} = $pm;
