@@ -1333,19 +1333,38 @@
 
   <!-- preprocess_glossTocMenus -->
   <template mode="preprocess_glossTocMenus" match="div[@type='glossary']">
-    <variable name="my_glossaryToc" as="xs:string"
-      select="if (count(distinct-values(descendant::seg[@type='keyword']/oc:keySortLetter(text()))) = 1) then 'single' else
-              if ( $glossaryToc = 'letter' or
-                   ($glossaryToc = 'AUTO' and
-                     count(descendant::div[starts-with(@type,'x-keyword')]) &#62;= $glossaryTocAutoThresh)
-                 ) then 'letter'
-              else 'single'"/>
-    <variable name="my_keywordFile"
-      select="if (count(descendant::seg[@type='keyword']) = 1) then 'glossary' else
-              if (self::div[@annotateType='x-feature' and @annotateRef='NO_TOC']) then 'single' else
-              if ($keywordFile != 'AUTO') then $keywordFile else
-              if (count(descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFileAutoThresh) then 'glossary'
-              else 'letter'"/>
+    <variable name="my_glossaryToc" as="xs:string" select="
+        if (
+            count(distinct-values(
+              descendant::seg[@type='keyword']/oc:keySortLetter(string())
+            )) = 1
+          )
+        then 'single'
+        else if (
+            $glossaryToc = 'letter' or
+            (
+              $glossaryToc = 'AUTO' and
+              count(descendant::div[starts-with(@type,'x-keyword')])
+                &#62;= $glossaryTocAutoThresh
+            )
+          )
+        then 'letter'
+        else 'single'"/>
+    <variable name="my_keywordFile" select="
+        if (count(descendant::seg[@type='keyword']) = 1)
+        then 'glossary'
+        else if (
+            self::div[@annotateType='x-feature' and @annotateRef='NO_TOC']
+          )
+        then 'single'
+        else if ($keywordFile != 'AUTO')
+        then $keywordFile
+        else if (
+            count(descendant::div[starts-with(@type, 'x-keyword')])
+            &#60; $keywordFileAutoThresh
+          )
+        then 'glossary'
+        else 'letter'"/>
     <call-template name="Note">
 <with-param name="msg">Glossary menus: <value-of select="oc:getDivTitle(.)"/>, my_glossaryToc=<value-of select="$my_glossaryToc"/>, my_keywordFile=<value-of select="$my_keywordFile"/></with-param>
     </call-template>
@@ -1705,14 +1724,25 @@
     </variable>
     <choose>
       <when test="$target = 'html'">
-        <!-- Add an ebook page-break if there is more than one keyword in the glossary.
-        NOTE: Calibre splits files at these CSS page breaks. -->
-        <variable name="needPageBreak" as="xs:boolean" select="$SCRIPT_NAME = 'osis2ebooks' and
-          count(ancestor::div[@type='glossary']/descendant::seg[@type='keyword']) &#62; 1"/>
+        <!-- Add an ebook page-break if there is more than one TOC keyword in
+        the glossary. NOTE: Calibre splits files at these CSS page breaks. -->
+        <variable name="needPageBreak" as="xs:boolean" select="
+            $SCRIPT_NAME = 'osis2ebooks' and
+            count(
+              ancestor::div[@type='glossary']/descendant::seg[@type='keyword']
+              [not(contains(@n, '[no_toc]'))]
+            ) &#62; 1"/>
         <html:div>
           <variable name="classes" select="oo:getClasses(.)"/>
-          <attribute name="class" select="if (not($needPageBreak)) then $classes else
-            normalize-space(string-join((tokenize($classes, ' '), 'osis-milestone', 'pb'), ' '))"/>
+          <attribute name="class" select="
+              if ($needPageBreak)
+              then normalize-space(
+                  string-join(
+                    (tokenize($classes, ' '), 'osis-milestone', 'pb'),
+                    ' '
+                  )
+                )
+              else $classes"/>
           <sequence select="$disambigHeading"/>
           <apply-templates mode="tran"/>
         </html:div>
@@ -3097,10 +3127,24 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       <!-- Reference OSIS glossary nodes -->
       <when test="$node/ancestor-or-self::div[@type='glossary']">
         <variable name="my_keywordFile" select="
-          if (count($refUsfmType/descendant::seg[@type='keyword']) = 1) then 'glossary' else
-          if ($refUsfmType[@annotateType='x-feature' and @annotateRef='NO_TOC']) then 'single' else
-          if ($keywordFile != 'AUTO') then $keywordFile else
-          if (count($refUsfmType/descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFileAutoThresh) then 'glossary'
+          if (
+              count(
+                $refUsfmType/descendant::seg[@type='keyword']
+                  [not(contains(@n, '[no_toc]'))]
+              ) &#60;= 1
+            )
+          then 'glossary'
+          else if (
+              $refUsfmType[@annotateType='x-feature' and @annotateRef='NO_TOC']
+            )
+          then 'single'
+          else if ($keywordFile != 'AUTO')
+          then $keywordFile
+          else if (
+              count($refUsfmType/descendant::div[starts-with(@type, 'x-keyword')])
+                &#60; $keywordFileAutoThresh
+            )
+          then 'glossary'
           else 'letter'"/>
         <variable name="suffix">
           <choose>

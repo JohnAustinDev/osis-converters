@@ -660,9 +660,11 @@
       </osis:p>
 
       <osis:list subType="x-menulist">
-        <for-each select="$osisText/div[@type='glossary'][not(@scope = 'NAVMENU')]
-                                                         [not(@annotateType = 'x-feature')]
-                                                         [not(@subType = 'x-aggregate')]">
+        <for-each select="
+            $osisText/div[@type='glossary']
+            [not(@scope = 'NAVMENU')]
+            [not(@annotateType = 'x-feature')]
+            [not(@subType = 'x-aggregate')]">
           <variable name="glossTitle" select="oc:getDivTitle(.)"/>
           <choose>
             <when test="not($glossTitle)">
@@ -693,6 +695,16 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
                 </choose>
               </variable>
               <osis:item>
+                <!-- Copy these attribs from the glossary so conversion.xsl can filter
+                the NAVMENU keywords along with each glossary. -->
+                <variable name="glossary" select="."/>
+                <for-each select="('annotateType', 'annotateRef')">
+                  <variable name="attrName" select="."/>
+                  <if test="$glossary/@*[local-name() = $attrName]">
+                    <attribute name="{$attrName}" select="
+                        $glossary/@*[local-name() = $attrName]"/>
+                  </if>
+                </for-each>
                 <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($target)}"
                   type="x-glosslink" subType="x-target_self">
                   <value-of select="oc:glossMenuTitle(.)"/>
@@ -818,6 +830,15 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       <!-- Create a menu with links to each letter plus a link
       to the all-keywords menu. -->
       <osis:div type="x-keyword" subType="x-navmenu-all-letters">
+        <!-- Copy these attribs from the glossary so conversion.xsl can filter
+         the NAVMENU keywords along with each glossary. -->
+        <for-each select="('annotateType', 'annotateRef')">
+          <variable name="attrName" select="."/>
+          <if test="$glossary/@*[local-name() = $attrName]">
+            <attribute name="{$attrName}" select="
+                $glossary/@*[local-name() = $attrName]"/>
+          </if>
+        </for-each>
         <osis:p subType="x-navmenu-top">
           <osis:seg type="keyword" osisID="{oc:encodeOsisRef($glossaryMenuTitle)}">
             <value-of select="$glossaryMenuTitle"/>
@@ -855,6 +876,15 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       <!-- Create the all-keywords menu with a link to each keyword -->
       <text>&#xa;</text>
       <osis:div type="x-keyword" subType="x-navmenu-all-keywords">
+        <!-- Copy these attribs from the glossary so conversion.xsl can filter
+         the NAVMENU keywords along with each glossary. -->
+        <for-each select="('annotateType', 'annotateRef')">
+          <variable name="attrName" select="."/>
+          <if test="$glossary/@*[local-name() = $attrName]">
+            <attribute name="{$attrName}" select="
+                $glossary/@*[local-name() = $attrName]"/>
+          </if>
+        </for-each>
         <osis:p>
           <if test="not($do_AtoZ_menu)">
             <attribute name="subType" select="'x-navmenu-top'"/>
@@ -901,6 +931,15 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       <for-each-group select="$letterMenus" group-starting-with="p[child::*[1][self::seg[@type='keyword']]]">
         <text>&#xa;</text>
         <osis:div type="x-keyword" subType="x-navmenu-letter">
+          <!-- Copy these attribs from the glossary so conversion.xsl can filter
+          the NAVMENU keywords along with each glossary. -->
+          <for-each select="('annotateType', 'annotateRef')">
+            <variable name="attrName" select="."/>
+            <if test="$glossary/@*[local-name() = $attrName]">
+              <attribute name="{$attrName}" select="
+                  $glossary/@*[local-name() = $attrName]"/>
+            </if>
+          </for-each>
           <sequence select="current-group()[1]"/>
           <if test="not($appendEntries) or
                     count(current-group()[self::reference]) &#62; 1">

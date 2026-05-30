@@ -297,12 +297,25 @@
 
   <!-- FILE: reference 'glossary' divs (which may contain keywords) -->
   <template mode="divideFiles" match="div[@type='glossary']">
-    <variable name="my_keywordFile"
-      select="if (count(descendant::seg[@type='keyword']) = 1) then 'glossary' else
-              if (self::div[@annotateType='x-feature' and @annotateRef='NO_TOC']) then 'single' else
-              if ($keywordFile != 'AUTO') then $keywordFile else
-              if (count(descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFileAutoThresh) then 'glossary'
-              else 'letter'"/>
+    <variable name="my_keywordFile" select="
+        if (
+            count(
+              descendant::seg[@type='keyword'][not(contains(@n, '[no_toc]'))]
+            ) &#60;= 1
+          )
+        then 'glossary'
+        else if (
+            self::div[@annotateType='x-feature' and @annotateRef='NO_TOC']
+          )
+        then 'single'
+        else if ($keywordFile != 'AUTO')
+        then $keywordFile
+        else if (
+            count(descendant::div[starts-with(@type, 'x-keyword')])
+              &#60; $keywordFileAutoThresh
+          )
+        then 'glossary'
+        else 'letter'"/>
     <call-template name="Note">
 <with-param name="msg">Processing glossary '<value-of select="oc:getDivTitle(.)"/>', my_keywordFile=<value-of select="$my_keywordFile"/></with-param>
     </call-template>

@@ -537,8 +537,8 @@ sub searchGlossaryLinkAtIndex {
       &Error("Explicit link failed to match '".&conf('ARG_debugMatch')."' because of: '$fail'");
     } else {
       &Error(
-        "An explicit link failed to match (see following error).",
-        "In config.conf, set ARG_debugMatch to the content of the match element that was expected to match (ie. ARG_debugMatch=/\\b(\\QFoobar\\E)\\b/. Then re-run, and this error message will provide a reason for the match failure."
+        "An explicit link failed to match (see following).",
+        "In config.conf, set ARG_debugMatch to the content of the match element that was expected to match (ie. ARG_debugMatch=/\\b(\\QFoobar\\E)\\b/. Then re-run, and this message will provide a reason for the match failure."
       );
     }
     return $indexElement;
