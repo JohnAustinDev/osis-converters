@@ -62,19 +62,20 @@
                   </for-each>
                 </variable>
                 <element name="match" namespace="http://github.com/JohnAustinDev/osis-converters">
-                  <value-of select="concat(
-                      if (matches($words, '^\\Q\w')) then '/\b(' else '/(',
-                      $words,
-                      ')/i'
-                    )"/>
+                  <value-of select="
+                      concat(
+                        if (matches($words, '^\\Q\p{L}')) then '/\b(' else '/(',
+                        $words,
+                        ')/i'
+                      )"/>
                 </element>
               </when>
               <when test="string-length(.)">
                 <element name="match" namespace="http://github.com/JohnAustinDev/osis-converters">
                   <value-of select="concat(
-                      if (matches(., '^\w')) then '/\b(\Q' else '/(\Q',
+                      if (matches(., '^\p{L}')) then '/\b(\Q' else '/(\Q',
                       .,
-                      if (matches(., '\w$')) then '\E)\b/i' else '\E)/i'
+                      if (matches(., '\p{L}$')) then '\E)\b/i' else '\E)/i'
                     )"/>
                 </element>
               </when>
