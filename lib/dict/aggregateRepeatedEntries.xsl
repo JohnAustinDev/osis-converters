@@ -26,7 +26,7 @@
     more than once. So conversions which require unique keywords (like
     SWORD) should use x-keyword-aggregate, while conversions which
     tolerate non-unique keywords (like eBooks) should use
-    x-keyword-duplicate keywords. 
+    x-keyword-duplicate keywords.
 
   GLOSSARY FORMATTING
   Glossaries necessarily require simplified formatting, because all key-
@@ -47,9 +47,9 @@
   <!-- Get a list of applicable keywords which are NOT unique (by a case insensitive comparison) -->
   <variable name="duplicate_keywords" select="//seg[@type='keyword']
       [ancestor::div[@type='glossary']]
-      [lower-case(normalize-space(string())) = 
+      [lower-case(normalize-space(string())) =
         following::seg[@type='keyword'][ancestor::div[@type='glossary']]/lower-case(normalize-space(string()))]
-      [not(lower-case(normalize-space(string())) = 
+      [not(lower-case(normalize-space(string())) =
         preceding::seg[@type='keyword'][ancestor::div[@type='glossary']]/lower-case(normalize-space(string())))]"/>
 
   <variable name="glossaryTitlesInKeyword" select="oc:sarg('glossaryTitlesInKeyword', /, 'no')"/>
@@ -63,28 +63,38 @@
   <template match="/">
 
     <!-- Process the OSIS file -->
-    <variable name="removeGlossaryDivs">
+    <variable name="remove_glossary_divs">
       <apply-templates mode="remove_glossary_divs"/>
     </variable>
-    <variable name="separateKeywords">
-      <apply-templates mode="separate_keywords" select="$removeGlossaryDivs"/>
+    <variable name="separate_keywords">
+      <apply-templates mode="separate_keywords" select="$remove_glossary_divs"/>
     </variable>
-    <variable name="writeOsisIDs">
-      <apply-templates mode="write_osisIDs" select="$separateKeywords"/>
+    <variable name="write_osisIDs">
+      <apply-templates mode="write_osisIDs" select="$separate_keywords"/>
     </variable>
     <variable name="output">
-      <apply-templates mode="writeMode" select="$writeOsisIDs"/>
+      <apply-templates mode="writeMode" select="$write_osisIDs"/>
     </variable>
 
     <!-- Warn about glossary material that is not in a keyword -->
-    <variable name="exglossary" select="$output//div[@type='glossary'][not(@subType='x-aggregate')]
-      [child::node()[not(self::comment())][not(self::div[starts-with(@type, 'x-keyword')])][normalize-space()]]"/>
+    <variable name="exglossary" select="
+        $output//div[@type='glossary']
+        [not(@subType='x-aggregate')]
+        [
+          child::node()
+          [not(self::comment())]
+          [not(self::div[starts-with(@type, 'x-keyword')])]
+          [normalize-space()]
+        ]"/>
     <if test="$exglossary">
       <call-template name="Warn">
 <with-param name="msg">The following material will not appear in any combined glossary or SWORD module:
 <for-each select="$exglossary">In glossary: "<value-of select="oc:getDivTitle(.)"/>"
 <value-of>
-          <for-each select="child::node()[not(self::comment())][not(self::div[starts-with(@type, 'x-keyword')])]">
+          <for-each select="
+              child::node()
+              [not(self::comment())]
+              [not(self::div[starts-with(@type, 'x-keyword')])]">
             <if test="normalize-space(.)"><text>     </text><value-of select="."/><text>&#xa;</text></if>
           </for-each>
         </value-of><text>&#xa;</text>
@@ -148,20 +158,30 @@ glossary entry.</with-param>
    child div. -->
   <template mode="separate_keywords" match="div[@type='glossary']">
     <variable name="osisID" select="@osisID"/>
-    <variable name="titlesInKeyword" as="xs:boolean"
-      select="@scope = 'NAVMENU' or @annotateType = 'x-feature'
-              or $glossaryTitlesInKeyword = 'yes'"/>
+    <variable name="titlesInKeyword" as="xs:boolean" select="
+        @scope = 'NAVMENU'
+        or @annotateType = 'x-feature'
+        or $glossaryTitlesInKeyword = 'yes'"/>
     <copy>
       <apply-templates select="@*"/>
 
       <!-- Break up lists with keyword items -->
       <variable name="pass1">
         <for-each select="node()">
-          <sequence select="oc:expelElements(., self::list/item/descendant::*[count(descendant-or-self::seg[@type='keyword']) = 1], (), false())"/>
+          <sequence select="
+              oc:expelElements(
+                .,
+                self::list/item/descendant::*[count(descendant-or-self::seg[@type='keyword']) = 1],
+                (),
+                false()
+              )"/>
         </for-each>
       </variable>
 
-      <for-each select="$pass1/descendant::*[count(descendant::seg[@type='keyword']) &#62; 1]">
+      <for-each select="
+          $pass1/descendant::*[
+            count(descendant::seg[@type='keyword']) &#62; 1
+          ]">
         <call-template name="Error">
 <with-param name="msg">Element contains multiple keywords: <value-of select="oc:printNode(.)"/>: <value-of select="."/></with-param>
 <with-param name="exp">Keywords are inline elements, but a single paragraph (or other element) cannot contain more than one keyword.</with-param>
@@ -172,16 +192,26 @@ glossary entry.</with-param>
       <variable name="firstKey" select="descendant::seg[@type='keyword'][1]"/>
 
       <!-- Separate glossary children into groups so that each keyword is,
-      or is inside, the first node of each group having a keyword. Title
-      elements inside a non-special glossary, having no level attribute
-      or level=1 will also start a new group, whose contents will not be
-      part of an x-keyword div. This is because in normal glossaries,
-      main titles do not apply to a single keyword. -->
-      <for-each-group select="$pass1/node()"
-          group-adjacent="count(descendant-or-self::seg[@type='keyword']) +
-                          count(preceding::seg[@type='keyword']) +
-                      0.5*count(self::title[not(@level) or @level='1'][not($titlesInKeyword)]) +
-                      0.5*count(preceding::title[not(@level) or @level='1'][not($titlesInKeyword)])">
+      or is inside, the first node of each group having a keyword.
+      The following elements will close a keyword div, and following nodes up
+      until the next keyword will NOT be part of any keyword div:
+      - chapter|milestone TOC elements.
+      - title[not(@level) or @level='1'] elements inside a non-special
+        glossary. This is because in normal glossary main titles do not apply
+        to a single keyword. -->
+      <for-each-group select="$pass1/node()" group-adjacent="
+          count(descendant-or-self::seg[@type='keyword']) +
+          count(preceding::seg[@type='keyword']) +
+          0.5*count((
+            self::title[not(@level) or @level='1'][not($titlesInKeyword)],
+            self::milestone[@type=concat('x-usfm-toc', $TOC)],
+            self::chapter[@osisID]
+          )) +
+          0.5*count((
+            preceding::title[not(@level) or @level='1'][not($titlesInKeyword)],
+            preceding::milestone[@type=concat('x-usfm-toc', $TOC)],
+            preceding::chapter[@osisID]
+          ))">
 
         <for-each select="current-group()/descendant::text()[normalize-space()][1]
             [. &#60;&#60; current-group()/descendant-or-self::seg[@type='keyword']]">

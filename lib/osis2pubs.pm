@@ -739,7 +739,7 @@ sub filterBibleToScope {
             $fipMS->unique_key eq $ms->unique_key) {
           $ms->setAttribute('n', '[not_parent]'.$ms->getAttribute('n'));
           &Note(
-"Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n').
+"Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n') .
 "\" because there is only one bookGroup in the OSIS file.", 1);
         }
         # Add [no_toc] if there is no intro p or the first
@@ -749,9 +749,8 @@ sub filterBibleToScope {
           if ($n !~ /\Q[no_toc]/) {
             $ms->setAttribute('n', "[no_toc]$n");
             &Note(
-  "Added [no_toc] to TOC milestone of bookGroup n=\"".$ms->getAttribute('n').
-  "\" because there is only one bookGroup in the OSIS file and the entry
-  contains no paragraphs.", 1);
+  "Added [no_toc] to TOC milestone of bookGroup n=\"".$ms->getAttribute('n') .
+  "\" because there is only one bookGroup in the OSIS file and the entry contains no paragraphs.", 1);
           }
         }
       }

@@ -6,26 +6,26 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
- 
+
   <import href="./common/functions.xsl"/>
-  
+
   <!-- By default copy everything as is, for all modes -->
   <template mode="#all" match="node()|@*">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
-  
+
   <template match="/">
     <!-- pass1 moves TOC milestones out of paragraphs -->
     <variable name="pass1"><apply-templates mode="pass1"/></variable>
     <!-- pass2 moves TOC milestones out of sections divs -->
     <apply-templates mode="pass2" select="$pass1"/>
   </template>
-  
-  <!-- Throw an error if there are unexpected ancestors of a verse. This 
-  helps indicate if usfm2osis.py did not properly close div elements 
+
+  <!-- Throw an error if there are unexpected ancestors of a verse. This
+  helps indicate if usfm2osis.py did not properly close div elements
   like \periph -->
   <template mode="pass1" match="verse[@osisID]">
-    <variable name="bad" 
+    <variable name="bad"
       select="ancestor::div[not(matches(@type, '(section|book)', 'i'))][1]"/>
     <if test="$bad">
       <call-template name="Error">
@@ -34,7 +34,7 @@
     </if>
     <next-match/>
   </template>
-  
+
   <!-- Paratext renders cells containing numbers differently, so identify with subType -->
   <template mode="pass1" match="cell[matches(normalize-space(.),'^\s*\-?\d[\d\s.,]*$')]">
     <copy>
@@ -42,7 +42,7 @@
       <apply-templates mode="#current" select="node()|@*"/>
     </copy>
   </template>
-  
+
   <!-- Empty cell elements do not render in SWORD (or possibly eBooks?) -->
   <template mode="pass1" match="cell[not(text())]">
     <copy>
@@ -51,24 +51,31 @@
       <text> </text>
     </copy>
   </template>
-  
-  <!-- usfm2osis.py puts scope title content within a reference element, 
+
+  <!-- usfm2osis.py puts scope title content within a reference element,
   but they are not actually reference links. So this fixes them. -->
   <template mode="pass1" match="reference[ancestor::title[@type='scope']]">
     <apply-templates mode="#current"/>
   </template>
-  
-  <!-- usfm2osis.py may output notes having n="", so remove these empty 
+
+  <!-- usfm2osis.py may output notes having n="", so remove these empty
   n attributes -->
   <template mode="pass1" match="@n[parent::note][. = '']"/>
-  
-  <!-- glossary keywords should never have optional line breaks or other 
+
+  <!-- glossary keywords should never have optional line breaks or other
   markup in them, and also must not contain TOC instructions (which should
   only appear in the n attribute) -->
   <template mode="pass1" match="seg[@type='keyword']">
     <variable name="text" select="replace(string(), '^(\[[^\]]*\])+', '')"/>
     <copy>
-      <if test="string() != $text"><attribute name="n" select="string()"/></if>
+      <if test="string() != $text">
+        <attribute name="n" select="
+            substring(
+              string(),
+              1,
+              string-length(string()) - string-length($text)
+            )"/>
+      </if>
       <apply-templates mode="#current" select="@*"/>
       <value-of select="$text"/>
       <for-each select="element()">
@@ -79,20 +86,20 @@
       </for-each>
     </copy>
   </template>
-  
-  <!-- osis-converters uses \toc tags for eBook TOC entries, but 
-  usfm2osis.py only expects them at the beginning of a file, before any 
-  paragraphs or section divs, and so it does not close these elements  
-  upon TOC markers as it should. So this fixes that problem by closing   
+
+  <!-- osis-converters uses \toc tags for eBook TOC entries, but
+  usfm2osis.py only expects them at the beginning of a file, before any
+  paragraphs or section divs, and so it does not close these elements
+  upon TOC markers as it should. So this fixes that problem by closing
   paragraphs and section divs at TOC milestones. -->
   <template mode="pass1" match="p[child::milestone[starts-with(@type, 'x-usfm-toc')]]">
-    <apply-templates mode="#current" 
+    <apply-templates mode="#current"
       select="oc:expelElements(., child::milestone[starts-with(@type, 'x-usfm-toc')], (), true())"/>
   </template>
-  
+
   <template mode="pass2" match="div[matches(@type,'[Ss]ection')][child::milestone[starts-with(@type, 'x-usfm-toc')]]">
-    <apply-templates mode="#current" 
+    <apply-templates mode="#current"
       select="oc:expelElements(., child::milestone[starts-with(@type, 'x-usfm-toc')], (), true())"/>
   </template>
-  
+
 </stylesheet>
