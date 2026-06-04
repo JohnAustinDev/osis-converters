@@ -24,12 +24,6 @@
   <!-- Settings used to control the transform -->
   <param name="CombineGlossaries" select="oc:conf('CombineGlossaries', /)"/> <!-- CombineGlossaries: 'AUTO', 'true' or 'false' -->
 
-  <param name="glossaryToc" select="oc:sarg('glossaryToc', /,
-    if ($SCRIPT_NAME = 'osis2ebooks') then 'no' else 'AUTO')"/>              <!-- ARG_glossaryToc: 'AUTO', 'single' or 'letter' -->
-  <param name="keywordFile" select="oc:sarg('keywordFile', /,
-    if ($SCRIPT_NAME = 'osis2ebooks') then 'single' else 'AUTO')"/>          <!-- ARG_keywordFile: 'AUTO', 'single', 'letter' or 'glossary' -->
-  <param name="chapterFiles" select="oc:sarg('chapterFiles', /,
-    if ($SCRIPT_NAME = 'osis2ebooks') then 'no' else 'yes')"/>               <!-- ARG_chapterFiles: 'yes' or 'no' -->
   <param name="navMenuLinks" select="oc:sarg('navMenuLinks', /,
     if ($SCRIPT_NAME='osis2ebooks') then 'no' else 'yes')"/>                 <!-- ARG_navMenuLinks: 'yes' or 'no' -->
   <param name="noEpub3Markup" select="oc:sarg('noEpub3Markup', /,
@@ -56,7 +50,6 @@
 
   <param name="keywordFileAutoThresh" select="xs:integer(number(oc:sarg('keywordFileAutoThresh', /, '10')))"/><!-- is ARG_keywordFileAutoThresh in config.conf -->
 
-  <variable name="eachChapterIsFile" as="xs:boolean" select="$chapterFiles = 'yes'"/>
   <variable name="includeNavMenuLinks" as="xs:boolean" select="$navMenuLinks = 'yes'"/>
   <variable name="epub3Markup" as="xs:boolean" select="$noEpub3Markup != 'yes'"/>
   <variable name="htmext" select="'.html'"/>
@@ -69,17 +62,19 @@
      OSIS file referenced in the project. But osis-converters supports a single
      dictionary OSIS file only, which contains all reference material. -->
   <variable name="mainInputOSIS" select="/"/>
-  <variable name="referenceOSIS" as="document-node()?"
-      select="if ($isChildrensBible or $isGenericBook)
-              then ()
-              else /osis/osisText/header/work[@osisWork != /osis/osisText/@osisIDWork]/
-                doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
+  <variable name="referenceOSIS" as="document-node()?" select="
+      if ($isChildrensBible or $isGenericBook)
+      then ()
+      else /osis/osisText/header/work[@osisWork != /osis/osisText/@osisIDWork]/
+        doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
 
-  <variable name="doCombineGlossaries" select="if ($CombineGlossaries = 'AUTO')
-      then false() else $CombineGlossaries = 'true' "/>
+  <variable name="doCombineGlossaries" as="xs:boolean" select="
+      if ($CombineGlossaries = 'AUTO')
+      then false()
+      else $CombineGlossaries = 'true' "/>
 
   <variable name="CombindedGlossaryTitle" select="
-      //work[boolean($DICTMOD) and @osisWork = $DICTMOD]/title[1]"/>
+      //work[boolean($DICTMOD) and @osisWork=$DICTMOD]/title[1]"/>
 
   <!-- USFM file types output by CrossWire's usfm2osis.py -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance',
@@ -134,63 +129,52 @@
   see &help('TABLE OF CONTENTS') for INSTRUCTIONS doc -->
   <function name="oc:getMainInlineTOC" as="element()*">
     <param name="titleTocElement" as="element(milestone)"/>
-    <param name="preprocessedMainOSIS" as="document-node()"/>
-    <param name="preprocessedRefOSIS" as="document-node()"/>
-    <param name="combinedGlossary" as="document-node()"/>
+    <param name="docs" as="document-node()+"/>
 
     <variable name="listElementDoc">
       <sequence select="oo:getTocListItems(
-          $preprocessedMainOSIS,
-          $preprocessedMainOSIS,
-          $preprocessedRefOSIS,
-          $combinedGlossary)"/>
+          $docs[oc:docWork(.)=$MAINMOD],
+          $docs
+        )"/>
       <!-- If combining glossaries, put the combined glossary first,
       then any non-glossary material after it -->
       <if test="$doCombineGlossaries">
         <sequence select="oo:getTocListItems(
-            $combinedGlossary,
-            $preprocessedMainOSIS,
-            $preprocessedRefOSIS,
-            $combinedGlossary)"/>
+            $docs[child::osis[@isCombinedGlossary='yes']],
+            $docs
+          )"/>
       </if>
       <!-- Next is either non-glossary material in reference OSIS (if
       combiningGlossaries) or else everything in reference OSIS -->
       <sequence select="oo:getTocListItems(
-          $preprocessedRefOSIS,
-          $preprocessedMainOSIS,
-          $preprocessedRefOSIS,
-          $combinedGlossary)"/>
+          $docs[$DICTMOD][oc:docWork(.)=$DICTMOD]
+            [not(child::osis[@isCombinedGlossary='yes'])],
+          $docs
+        )"/>
     </variable>
 
     <if test="count($listElementDoc/*)">
-      <variable name="origTitleTocElement" select="
-          oo:origElement(
-            $titleTocElement,
-            $preprocessedMainOSIS,
-            $preprocessedRefOSIS,
-            $combinedGlossary
-          )"/>
       <choose>
         <when test="$target = 'html'">
           <html:div id="root-toc">
             <sequence select="
               oo:getInlineToc(
-                $origTitleTocElement,
+                $titleTocElement,
                 false(),
                 $listElementDoc,
                 true(),
-                $preprocessedRefOSIS
+                $docs
               )"/>
           </html:div>
         </when>
         <when test="$target = 'fb2'">
           <sequence select="
             oo:getInlineToc(
-              $origTitleTocElement,
+              $titleTocElement,
               false(),
               $listElementDoc,
               true(),
-              $preprocessedRefOSIS
+              $docs
             )"/>
         </when>
       </choose>
@@ -200,37 +184,26 @@
   <function name="oo:getElementInlineTOC" as="element()*">
     <param name="tocElement" as="element()"/>
     <param name="noTitle" as="xs:boolean"/>
-    <param name="preprocessedMainOSIS"/>
-    <param name="preprocessedRefOSIS"/>
-    <param name="combinedGlossary"/>
+    <param name="docs"/>
 
     <if test="
         not($isBible and $tocElement[self::chapter]) and
         not($tocElement[self::seg])">
-      <variable name="origTocElement" as="element()" select="
-          oo:origElement(
-            $tocElement,
-            $preprocessedMainOSIS,
-            $preprocessedRefOSIS,
-            $combinedGlossary
-          )"/>
       <variable name="listElementDoc">
         <sequence select="oo:getTocListItems(
-            $origTocElement,
-            $preprocessedMainOSIS,
-            $preprocessedRefOSIS,
-            $combinedGlossary
+            $tocElement,
+            $docs
           )"/>
       </variable>
 
       <if test="count($listElementDoc/*)">
         <sequence select="
             oo:getInlineToc(
-              $origTocElement,
+              $tocElement,
               $noTitle,
               $listElementDoc,
               false(),
-              $preprocessedRefOSIS
+              $docs
             )"/>
       </if>
     </if>
@@ -241,7 +214,7 @@
     <param name="noTitle" as="xs:boolean"/>
     <param name="listdoc" as="document-node()"/>
     <param name="isTopTOC" as="xs:boolean"/>
-    <param name="preprocessedRefOSIS"/>
+    <param name="docs"/>
 
     <!-- Output an inline TOC title (unless $noTitle is true) -->
     <if test="not($noTitle)">
@@ -275,9 +248,12 @@
       <for-each select="$origTitleTocElement">
         <if test="
             not($doCombineGlossaries) and
-            oo:getTocLevel(., false()) = 1 and
+            oo:getTocLevel(.) = 1 and
             count(distinct-values(
-              $preprocessedRefOSIS//div[@type='glossary']/oc:getDivScopeTitle(.)
+              $docs[$DICTMOD][oc:docWork(.)=$DICTMOD]
+              [not(child::osis[@isCombinedGlossary='yes'])]//
+              div[@type='glossary']/
+              oc:getDivScopeTitle(.)
             )) &#62; 1">
           <variable name="heading">
             <call-template name="keywordDisambiguationHeading">
@@ -498,217 +474,165 @@
     </choose>
   </function>
 
-  <!-- Returns a series of list entry elements, one for every TOC entry that is
-  a step below tocNode in the hierarchy. A class is added according to the type
-  of entry. EBook glossary keyword lists with greater than
-  $glossaryTocAutoThresh entries are pared down to list only the first of each
-  letter. IMPORTANT: tocNode MUST be the document-node of, or an element
-  within, the preprocessedMainOSIS, preprocessedRefOSIS or combinedGlossary.-->
+  <!-- Return a list of the TOC element's or document-node's child TOC items.
+  A class is added according to the type of entry. EBook glossary keyword lists
+  having greater than $glossaryTocAutoThresh entries are pared down to list
+  only the first of each letter. -->
   <function name="oo:getTocListItems" as="element()*">
-    <param name="tocNode" as="node()"/><!-- tocElement or document-node -->
-    <param name="preprocessedMainOSIS"/>
-    <param name="preprocessedRefOSIS"/>
-    <param name="combinedGlossary"/>
+    <param name="tocNode" as="node()?"/><!-- TOC element or document-node -->
+    <param name="docs"/>
+    <if test="$tocNode">
+      <variable name="myTocLevel" as="xs:integer" select="
+          if ($tocNode[self::document-node()])
+          then 0
+          else oo:getTocLevel($tocNode)"/>
+      <variable name="myStart" as="element()?" select="
+          if ($tocNode[self::document-node()])
+          then $tocNode/descendant::*
+            [contains(@n, '[level1]')]
+            [not(contains(@n, '[no_toc]'))]
+            [1]
+          else $tocNode"/>
+      <variable name="includeStart" as="element()?" select="
+          if (
+            $tocNode[self::document-node()] and
+            not($myStart[@isMainTocMilestone='true'])
+          )
+          then $myStart
+          else ()"/>
 
-    <variable name="isTopTOC" select="$tocNode[self::document-node()]"/>
-    <variable name="docWork" select="oc:docWork($tocNode)"/>
-    <variable name="isMainNode" select="$docWork = $MAINMOD"/>
-    <variable name="isDictNode" select="$docWork = $DICTMOD"/>
-    <variable name="myTocLevel" as="xs:integer" select="
-        if ($isTopTOC)
-        then 0
-        else oo:getTocLevel($tocNode, false())"/>
-    <variable name="sourceDir" select="
-        concat(
-          '/html/',
-          if ($isTopTOC)
-            then oo:getFileName($mainTocMilestone)
-            else oo:getFileName($tocNode)
-        )"/>
-
-    <if test="
-        $myTocLevel &#60; 3 and
-        not(
-          oo:getTocInstructions($tocNode) = ('not_parent', 'no_inline_toc')
-        )">
-      <variable name="subentries" as="element()*">
-        <choose>
-          <!-- Generic Books including Children's Bibles -->
-          <when test="($isChildrensBible or $isGenericBook) and $isTopTOC">
-            <sequence select="$tocNode//
-                milestone[@type=concat('x-usfm-toc', $TOC)]
-                [contains(@n, '[level1]')][not(@isMainTocMilestone)]"/>
-          </when>
-          <when test="$isChildrensBible or $isGenericBook">
-            <variable name="followingTocs" select="$tocNode/following::
-                milestone[@type=concat('x-usfm-toc', $TOC)]
-                [contains(@n, concat('[level',($myTocLevel+1),']'))]"/>
-            <variable name="nextSibling"   select="$tocNode/following::
-                milestone[@type=concat('x-usfm-toc', $TOC)]
-                [contains(@n, concat('[level',$myTocLevel,']'))][1]"/>
-            <sequence select="if ($nextSibling) then
-                $followingTocs[. &#60;&#60; $nextSibling] else
-                $followingTocs"/>
-          </when>
-          <!-- chapter start tag -->
-          <when test="$tocNode/self::chapter[@sID]">
-            <sequence select="
-                ( $tocNode/following::seg[@type='keyword'] |
-                  $tocNode/following::milestone
-                    [@type=concat('x-usfm-toc', $TOC)]
-                )[not(oo:getTocInstructions(.) = 'no_toc')]
-                except $tocNode/following::chapter[@eID]
-                  [@eID = $tocNode/@sID]/following::*
-              "/>
-          </when>
-          <!-- otherwise use toclevel for this TOC element -->
-          <otherwise>
-            <variable name="followingTocCandidates" select="
-                ( root($tocNode)//chapter[@sID] |
-                  root($tocNode)//seg[@type='keyword'] |
-                  root($tocNode)//milestone[@type=concat('x-usfm-toc', $TOC)]
-                )[. &#62;&#62; $tocNode]
-                  [not($isTopTOC and @isMainTocMilestone = 'true')]
-                  [not(
-                    $isTopTOC and self::*[contains(@n, '[no_main_inline_toc]')]
-                  )]
-                  [not(
-                    ancestor::div[@type='glossary'][@subType='x-aggregate']
-                  )]
-                  [not(oo:getTocInstructions(.) = 'no_toc')]"/>
-            <variable name="nextTocSP" select="
-                if ($isTopTOC)
-                then ()
-                else $tocNode/following::*[. intersect $followingTocCandidates]
-                  [oo:getTocLevel(., false()) &#60;= $myTocLevel][1]"/>
-            <sequence select="
-                $followingTocCandidates[oo:getTocLevel(., false()) = $myTocLevel + 1]
-                [not($nextTocSP) or not(. intersect $nextTocSP)]
-                [not($nextTocSP) or not(. &#62;&#62; $nextTocSP)]"/>
-          </otherwise>
-        </choose>
-      </variable>
-      <variable name="onlyKeywordFirstLetter" as="xs:boolean" select="
-          not($isMainNode) and
-          ($SCRIPT_NAME = 'osis2ebooks') and
+      <if test="
+          ($myStart or $includeStart) and
+          ($myTocLevel &#60; 3 or $SCRIPT_NAME != 'osis2ebooks') and
           (
-            count($subentries[@type='keyword']) &#62;=
-            xs:integer(number($glossaryTocAutoThresh))
-          ) and
-          count(distinct-values(
-            $subentries[@type='keyword']/oc:keySortLetter(text())
-          )) &#62; 1"/>
-      <for-each select="$subentries">
-        <if test="not( $onlyKeywordFirstLetter and
-                       boolean(self::seg[@type='keyword']) and
-                       oc:skipGlossaryEntry(.)
-                      )">
-          <variable name="liClass" as="xs:string+">
-            <variable name="class" as="xs:string+">
+            $tocNode[self::document-node()] or
+            not(
+              oo:getTocInstructions($tocNode) =
+              ('no_toc', 'not_parent', 'no_inline_toc')
+            )
+          )">
+        <variable name="childTocElements" as="element()*">
+            <variable name="childTocs" select="(
+                  $includeStart |
+                  $myStart/following::*
+                  [contains(@n, concat('[level', ($myTocLevel + 1), ']'))]
+                  [not(contains(@n, '[no_toc]'))]
+                  [not(contains(@n, '[no_inline_toc]'))]
+                  [not(
+                    $tocNode[self::document-node()] and
+                    contains(@n, '[no_main_inline_toc]')
+                  )]
+                )"/>
+            <variable name="myEnd" select="
+                if ($tocNode[self::document-node()])
+                then ()
+                else $tocNode/following::*
+                  [contains(@n, concat('[level', $myTocLevel, ']'))]
+                  [not(contains(@n, '[no_toc]'))]
+                  [1]"/>
+            <sequence select="
+                if ($myEnd)
+                then $childTocs[. &#60;&#60; $myEnd]
+                else $childTocs"/>
+        </variable>
+        <variable name="onlyFirstLetterKeywords" as="xs:boolean" select="
+            oc:docWork($tocNode) != $MAINMOD and
+            (
+              count($childTocElements[@type='keyword']) &#62;=
+              xs:integer(number($glossaryTocAutoThresh))
+            ) and
+            count(distinct-values(
+              $childTocElements[@type='keyword']/oc:keySortLetter(text())
+            )) &#62; 1"/>
+        <variable name="sourceDir" select="
+            concat(
+              '/',
+              if ($tocNode[self::document-node()])
+                then oo:getFileName(
+                  $docs[oc:docWork(.)=$MAINMOD]/
+                  descendant::*[contains(@n, '[level1]')]
+                  [not(contains(@n, '[no_toc]'))]
+                  [1]
+                )
+                else oo:getFileName($tocNode)
+            )"/>
+        <for-each select="$childTocElements">
+          <if test="not(
+                $onlyFirstLetterKeywords and
+                self::seg[@type='keyword'] and
+                oc:skipGlossaryEntry(.)
+              )">
+            <variable name="href" select="
+              if ($target = 'html')
+              then oc:uriToRelativePath(
+                  $sourceDir,
+                  concat('/', oo:getFileName(.), '#', oc:id(@osisID))
+                )
+              else concat('#', oc:id(@osisID))"/>
+            <variable name="link" as="xs:string">
               <choose>
-                <when test="self::chapter"
-                > xsl-chapter-link </when>
-                <when test="self::seg"
-                > xsl-keyword-link </when>
+                <when test="self::chapter[@osisID]">
+                  <value-of select="tokenize(@osisID, '\.')[last()]"/>
+                </when>
                 <when test="
-                    $isChildrensBible and
-                    $isTopTOC and
-                    count(
-                      preceding::milestone[contains(@n,'[level1]')]
-                      [@type=concat('x-usfm-toc', $TOC)]
-                    ) = (2,3)"
-                > xsl-bookGroup-link </when>
-                <when test="$isChildrensBible and $isTopTOC"
-                > xsl-other-link </when>
-                <when test="$isDictNode and oo:isGlossaryTOC(.)"
-                > xsl-glossary-link</when>
-                <when test="oo:isBookIntroTOC(.)"
-                > xsl-book-introduction-link </when>
-                <when test="oo:isBookTOC(.)"
-                > xsl-book-link </when>
-                <when test="oo:isBookSubGroupTOC(.)"
-                > xsl-bookSubGroup-link </when>
-                <when test="oo:isBookGroupTOC(.)"
-                > xsl-bookGroup-link </when>
-                <otherwise
-                > xsl-other-link </otherwise>
+                    ancestor::div[@type='x-keyword']
+                    [@subType = 'x-navmenu-all-keywords']">
+                  <value-of select="concat(
+                      oc:keySortLetter(
+                          ancestor::div[@type='x-keyword']/
+                          descendant::reference[1]/string()
+                        ),
+                      '-',
+                      oc:keySortLetter(
+                          ancestor::div[@type='x-keyword']/
+                          descendant::reference[last()]/string()
+                        )
+                    )"/>
+                </when>
+                <when test="
+                    ancestor::div[@type='x-keyword']
+                    [@subType = 'x-navmenu-letter']">
+                  <value-of select="
+                    oc:keySortLetter(
+                      ancestor::div[@type='x-keyword']/
+                      descendant::seg[@type='keyword'][1]/string()
+                    )"/>
+                </when>
+                <when test="
+                    $onlyFirstLetterKeywords and
+                    self::seg[@type='keyword']">
+                  <value-of select="oc:keySortLetter(text())"/>
+                </when>
+                <when test="matches(text(), '^\-')">
+                  <value-of select="text()"/>
+                </when>
+                <otherwise>
+                  <value-of select="oo:getTocTitle(.)"/>
+                </otherwise>
               </choose>
-              <value-of select="oc:getTocInstructions(.)"/>
-              <if test="ancestor::div[@subType='x-navmenu-all-keywords']"
-              > xsl-atoz </if>
             </variable>
-            <value-of select="normalize-space(string-join($class, ' '))"/>
-          </variable>
-          <variable name="href" select="
-            if ($target = 'html')
-            then oc:uriToRelativePath(
-                $sourceDir,
-                concat('/html/', oo:getFileName(.), '#', oc:id(@osisID))
-              )
-            else concat('#', oc:id(@osisID))"/>
-          <variable name="link" as="xs:string">
             <choose>
-              <when test="self::chapter[@osisID]">
-                <value-of select="tokenize(@osisID, '\.')[last()]"/>
-              </when>
-              <when test="
-                  ancestor::div[@type='x-keyword']
-                  [@subType = 'x-navmenu-all-keywords']">
-                <value-of select="concat(
-                    oc:keySortLetter(
-                        ancestor::div[@type='x-keyword']/
-                        descendant::reference[1]/string()
-                      ),
-                    '-',
-                    oc:keySortLetter(
-                        ancestor::div[@type='x-keyword']/
-                        descendant::reference[last()]/string()
-                      )
-                  )"/>
-              </when>
-              <when test="
-                  ancestor::div[@type='x-keyword']
-                  [@subType = 'x-navmenu-letter']">
-                <value-of select="
-                  oc:keySortLetter(
-                    ancestor::div[@type='x-keyword']/
-                    descendant::seg[@type='keyword'][1]/string()
-                  )"/>
-              </when>
-              <when test="
-                  $onlyKeywordFirstLetter and
-                  self::seg[@type='keyword']">
-                <value-of select="oc:keySortLetter(text())"/>
-              </when>
-              <when test="matches(text(), '^\-')">
-                <value-of select="text()"/>
-              </when>
-              <otherwise>
-                <value-of select="oo:getTocTitle(.)"/>
-              </otherwise>
-            </choose>
-          </variable>
-          <choose>
-            <when test="$target = 'html'">
-              <html:li>
-                <attribute name="class" select="$liClass"/>
-                <!-- two divs are needed to center vertically -->
-                <html:div>
+              <when test="$target = 'html'">
+                <html:li>
+                  <attribute name="class" select="@tocElementClasses"/>
+                  <!-- two divs are needed to center vertically -->
                   <html:div>
-                    <html:a>
-                      <attribute name="href" select="$href"/>
-                      <value-of select="$link"/>
-                    </html:a>
+                    <html:div>
+                      <html:a>
+                        <attribute name="href" select="$href"/>
+                        <value-of select="$link"/>
+                      </html:a>
+                    </html:div>
                   </html:div>
-                </html:div>
-              </html:li>
-            </when>
-            <when test="$target = 'fb2'">
-              <fb2:a xlink:href="{$href}"><value-of select="$link"/></fb2:a>
-            </when>
-          </choose>
-        </if>
-      </for-each>
+                </html:li>
+              </when>
+              <when test="$target = 'fb2'">
+                <fb2:a xlink:href="{$href}"><value-of select="$link"/></fb2:a>
+              </when>
+            </choose>
+          </if>
+        </for-each>
+      </if>
     </if>
   </function>
 
@@ -819,7 +743,7 @@
           oo:isBibleIntroTOC($x) or
           oo:isBookTOC($x) or
           oo:isBookGroupTOC($x) or
-          (oo:isBookSubGroupTOC($x) and oo:getTocLevel($x, true()) = 1) or
+          (oo:isBookSubGroupTOC($x) and oo:getTocLevelPRE($x) = 1) or
           oo:isChildrensBibleSectionTOC($x)
         ))"/>
   </function>
@@ -871,15 +795,13 @@
     </choose>
   </function>
 
-  <!-- getTocLevel returns an integer which is the TOC hierarchy level
+  <!-- getTocLevelPRE returns an integer which is the TOC hierarchy level
   of the tocElement; where 1 is the hightest possible level and 3 is the
-  lowest (deeper levels will return 3 and throw a WARNING as they are not
-  supported by eBook readers). After preprocess mode is done, the TOC level
-  MUST be specified in the n attribute by a [levelN] instruction. Chapter and
-  keyword TOC element n attributes are set during preprocess mode. -->
-  <function name="oo:getTocLevel" as="xs:integer">
+  lowest for eBooks (deeper levels when rentering eBooks will return 3 and
+  emit a WARNING as they are not supported by eBook readers). This should be
+  called in, AND ONLY IN, the preproces mode.  -->
+  <function name="oo:getTocLevelPRE" as="xs:integer">
     <param name="tocElement" as="element()"/>
-    <param name="isPreprocess" as="xs:boolean"/>
 
     <variable name="toclevelEXPLICIT" as="xs:integer" select="
       if (matches($tocElement/@n, '\[level(\d)\]'))
@@ -890,21 +812,21 @@
         <when test="$toclevelEXPLICIT != 0">
           <value-of select="$toclevelEXPLICIT"/>
         </when>
-        <when test="$isPreprocess">
-          <variable name="parentTOC" as="element(milestone)?"
-            select="oo:getParentTOC($tocElement)"/>
+        <otherwise>
+          <variable name="parentTOC" as="element(milestone)?" select="
+              oo:getParentTOC($tocElement)"/>
           <choose>
             <when test="$parentTOC">
-              <value-of select="1 + oo:getTocLevel($parentTOC, $isPreprocess)"/>
+              <value-of select="
+                  1 + oo:getTocLevelPRE($parentTOC)"/>
             </when>
             <otherwise><value-of select="1"/></otherwise>
           </choose>
-        </when>
-        <otherwise><value-of select="0"/></otherwise>
+        </otherwise>
       </choose>
     </variable>
     <choose>
-      <when test="$result &#62; 3">
+      <when test="$result &#62; 3 and $SCRIPT_NAME = 'osis2ebooks'">
         <call-template name="Warn">
 <with-param name="msg">Maximum TOC level exceeded (<value-of select="$result"/> &#62; 3) defaulting to 3: <value-of select="oc:printNode($tocElement)"/></with-param>
 <with-param name="exp">EBook readers handle up to 3 levels of TOC. Use [levelN] TOC instructions to reduce the hierarchy level.</with-param>
@@ -912,7 +834,7 @@
         <value-of select="3"/>
       </when>
       <when test="$result = 0">
-        <if test="not($isPreprocess) and $tocElement[self::milestone]">
+        <if test="$tocElement[self::milestone]">
           <call-template name="Error">
 <with-param name="msg">TOC level must be specified with [levelN]: <value-of select="oc:printNode($tocElement)"/></with-param>
           </call-template>
@@ -923,9 +845,19 @@
     </choose>
   </function>
 
+  <!-- getTocLevel returns an integer which is the TOC hierarchy level
+  of the tocElement. This function may only be called AFTER the preprocess
+  mode has completed. -->
+  <function name="oo:getTocLevel" as="xs:integer">
+    <param name="tocElement" as="element()"/>
+    <value-of select="
+      if (matches($tocElement/@n, '\[level(\d)\]'))
+      then (xs:integer(replace($tocElement/@n, '^.*?\[level(\d)\].*$', '$1')))
+      else 0"/>
+  </function>
+
   <!-- oo:getTocInstructions returns all TOC instructions of a TOC element.
-  IMPORTANT: the tocElement MUST be either the oo:origElement(.) or have
-  an explicit TOC level (ie. [level2]).
+  IMPORTANT: the tocElement MUST have an explicit TOC level (ie. [level2]).
   These are TOC elements:
     milestone[@type=concat('x-usfm-toc', $TOC)]
     chapter[@osisID]
@@ -952,8 +884,8 @@
   </function>
 
   <!-- oo:getTocClasses returns all classes associated with a TOC element,
-  which includes any TOC instructions. IMPORTANT: the tocElement MUST be either
-  the oo:origElement(.) or have an explicit TOC level (ie. [level2]).
+  which includes any TOC instructions. IMPORTANT: the tocElement MUST have
+  an explicit TOC level (ie. [level2]).
   These are TOC elements:
     milestone[@type=concat('x-usfm-toc', $TOC)]
     chapter[@osisID]
@@ -973,8 +905,7 @@
 
   <!-- oo:getTocAttributes returns attributes for transformed TOC
   elements. The title attribute is used by Calibre for building the TOC.
-  IMPORTANT: the tocElement MUST be either the oo:origElement(.)
-  or have an explicit TOC level (ie. [level2]).
+  IMPORTANT: the tocElement MUST have an explicit TOC level (ie. [level2]).
   These are TOC elements:
     milestone[@type=concat('x-usfm-toc', $TOC)]
     chapter[@osisID]
@@ -989,60 +920,12 @@
       <attribute name="class" select="
         normalize-space(string-join($classes, ' '))"/>
 
+      <!-- HTML detached TOC requires this attribute -->
       <if test="not($classes = ('no_toc', 'only_inline_toc'))">
         <attribute name="title" select="
-          concat('toclevel-', oo:getTocLevel($tocElement, false()))"/>
+          concat('toclevel-', oo:getTocLevel($tocElement))"/>
       </if>
     </if>
-  </function>
-
-  <!-- oo:origElement returns the element from the original preprocessed osis
-  file having the same osisID as the passed element, for elements that need
-  context for TOC determination. Otherwise element is simply returned. -->
-  <function name="oo:origElement" as="element()">
-    <param name="element" as="element()"/>
-    <param name="preprocessedMainOSIS" as="document-node()"/>
-    <param name="preprocessedRefOSIS" as="document-node()"/>
-    <param name="combinedGlossary" as="document-node()"/>
-    <choose>
-      <!-- chapter TOC elements don't require context for TOC determiniation -->
-      <when test="$element[@osisID]
-          [ self::milestone[@type=concat('x-usfm-toc', $TOC)] or
-            self::seg[@type='keyword'] ]">
-        <variable name="elementDoc" as="document-node()">
-          <choose>
-            <when test="
-                $element/ancestor::osisText[1]/@osisIDWork =
-                $preprocessedMainOSIS/descendant-or-self::osisText[1]/@osisIDWork">
-              <sequence select="$preprocessedMainOSIS"/>
-            </when>
-            <when test="
-                $element/ancestor::osisText[1]/@osisIDWork =
-                $preprocessedRefOSIS/descendant-or-self::osisText[1]/@osisIDWork">
-              <sequence select="$preprocessedRefOSIS"/>
-            </when>
-            <otherwise>
-              <sequence select="$combinedGlossary"/>
-            </otherwise>
-          </choose>
-        </variable>
-        <variable name="result" as="element()?">
-          <sequence select="key('osisID', $element/@osisID, $elementDoc)"/>
-        </variable>
-        <!-- Don't error if the element doesn't require context for TOC determination -->
-        <if test="
-            not($result) and
-            not($element/@osisID = 'CombindedGlossary') and
-            not($element[self::seg[@type='keyword']])
-          ">
-          <call-template name="ErrorBug">
-<with-param name="msg">oo:origElement() found no original element: <value-of select="oc:printNode($element)"/> in document '<value-of select="$elementDoc/osis/osisText/@osisIDWork"/>'</with-param>
-          </call-template>
-        </if>
-        <sequence select="if ($result) then $result else $element"/>
-      </when>
-      <otherwise><sequence select="$element"/></otherwise>
-    </choose>
   </function>
 
   <!-- oo:getTocTitle returns the string title of a tocElement (without any
@@ -1125,55 +1008,166 @@
   <!--                 PREPROCESS THE MAIN OSIS FILE                        -->
   <!-- #################################################################### -->
 
-  <!-- OSIS pre-processing templates greatly speed up processing that
-  requires node copying/deleting/modification. -->
-  <template mode="preprocess
-                  preprocess_removeSectionDivs
-                  preprocess_expelChapterTags
-                  preprocess_glossTocMenus
-                  preprocess_addGroupAttribs" match="node()|@*">
+  <template match="node()|@*" mode="
+      preprocess_glossaries
+      preprocess
+      preprocess_removeDivs
+      preprocess_sections">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
 
-  <template mode="preprocess" match="osis">
-    <if test="not($mainTocMilestone)">
-      <call-template name="Error">
-<with-param name="msg">No main TOC milestone was found.</with-param>
-<with-param name="exp">Add a TOC tag at the beginning of the main document.</with-param>
-      </call-template>
-    </if>
-    <next-match/>
+  <template mode="preprocess_glossaries" match="div[@type='glossary']">
+    <copy>
+      <apply-templates mode="#current" select="@*"/>
+      <choose>
+        <!-- The osis2html presentation has no detached TOC, so when there are
+        more than glossaryTocAutoThresh keywords, each glossary is rendered as
+        any pre-keyword nodes followed by the letter menu system. -->
+        <when test="
+            $SCRIPT_NAME = 'osis2html' and
+            count(descendant::seg[@type='keyword']) &#62;=
+            xs:integer(number($glossaryTocAutoThresh))">
+          <apply-templates mode="#current" select="@*"/>
+          <variable name="firstKeyword" as="element(div)?" select="
+              descendant::div[starts-with(@type, 'x-keyword')][1]"/>
+          <for-each select="node()[. &#60;&#60; $firstKeyword]">
+            <sequence select="."/>
+          </for-each>
+          <sequence select="oc:glossaryMenu(., 'no', 'yes', true())"/>
+        </when>
+        <otherwise><apply-templates mode="#current"/></otherwise>
+      </choose>
+    </copy>
   </template>
 
-  <!-- preprocess
-  The x-aggregate glossary is copied to the combined glossary whenever it is used
-  (therefore x-keyword-duplicate keywords are NOT included in the combined glossary).
-  This means that links to x-keyword-duplicate keywords need to be redirected to
-  their aggregated entries by the 'reference' template. -->
-  <template mode="preprocess"
-    match="div[@type='glossary'][@subType='x-aggregate'] |
-           div[@type='glossary'][$doCombineGlossaries][not(ancestor::osis[@isCombinedGlossary])] |
-           div[@annotateType='x-feature'][@annotateRef='INT'][oc:docWork(.) = $DICTMOD] |
-           div[@scope='NAVMENU']"/>
+  <!-- preprocess -->
+
+  <!-- All TOC elements (milestone, chapter, seg) must have @n attribute
+  specifying [levelN]. Also a [no_toc] milestone must be inserted before
+  each TOC element that is imediately preceded by a [inline_toc_last]
+  TOC element, to act as the default placement target. -->
+  <template mode="preprocess" match="milestone[@type=concat('x-usfm-toc', $TOC)]">
+    <call-template name="endingNoToc"/>
+    <copy>
+      <apply-templates mode="#current" select="@*[local-name() != 'n']"/>
+      <if test="self::*[. intersect $mainTocMilestone]">
+        <attribute name="isMainTocMilestone" select="'true'"/>
+      </if>
+      <if test="not(@osisID) or not(matches(@osisID, '\S'))">
+        <attribute name="osisID" select="generate-id(.)"/>
+      </if>
+      <variable name="n" as="xs:string+">
+        <if test="not(matches(@n, '\[level(\d)\]'))">
+          <value-of select="concat('[level', oo:getTocLevelPRE(.), ']')"/>
+        </if>
+        <if test="not(matches(@n, '\[(inline_toc_first|inline_toc_last)\]'))">
+          <value-of select="
+              if (oo:isInlineTocLast(.))
+              then '[inline_toc_last]'
+              else '[inline_toc_first]'"/>
+        </if>
+        <if test="@n"><value-of select="@n"/></if>
+      </variable>
+      <attribute name="n" select="string-join($n, '')"/>
+      <attribute name="tocElementClasses" select="oo:tocElementClasses(.)"/>
+      <apply-templates mode="#current"/>
+    </copy>
+  </template>
+  <template mode="preprocess" match="seg[@type='keyword'] | chapter[@osisID]">
+    <call-template name="endingNoToc"/>
+    <copy>
+      <apply-templates mode="#current" select="@*[local-name() != 'n']"/>
+      <variable name="n" as="xs:string+">
+        <if test="not(matches(@n, '\[level(\d)\]'))">
+          <variable name="prevMilestoneTOC" as="element()?" select="
+            preceding::milestone[@type=concat('x-usfm-toc', $TOC)]
+            [not(matches(@n, '\[not_parent\]'))][1]"/>
+          <variable name="prevMilestoneTOCLevel" select="
+            if ($prevMilestoneTOC)
+            then oo:getTocLevelPRE($prevMilestoneTOC)
+            else 0"/>
+          <value-of select="concat('[level', $prevMilestoneTOCLevel + 1, ']')"/>
+        </if>
+        <if test="not(matches(@n, '\[(inline_toc_first|inline_toc_last)\]'))">
+          <value-of select="
+              if (oo:isInlineTocLast(.))
+              then '[inline_toc_last]'
+              else '[inline_toc_first]'"/>
+        </if>
+        <if test="@n"><value-of select="@n"/></if>
+      </variable>
+      <attribute name="n" select="string-join($n, '')"/>
+      <attribute name="tocElementClasses" select="oo:tocElementClasses(.)"/>
+      <apply-templates mode="#current" select="node()"/>
+    </copy>
+  </template>
+  <template mode="preprocess" match="div[starts-with(@type, 'x-keyword')]">
+    <call-template name="endingNoToc"/>
+    <next-match/>
+  </template>
+  <template name="endingNoToc" as="element(milestone)?">
+    <if test="not(self::seg[@type='keyword'])">
+      <variable name="tocElement" as="element()" select="
+        if (self::div[starts-with(@type, 'x-keyword')])
+        then descendant::seg[@type='keyword'][1]
+        else ."/>
+      <variable name="prevtoc" as="element()?" select="
+        preceding::*[
+          self::chapter[@osisID] or
+          self::seg[@type='keyword'] or
+          self::milestone[@type=concat('x-usfm-toc', $TOC)]
+        ][not(oo:getTocInstructions(.) = 'no_toc')][1]"/>
+      <if test="
+          not(oo:getTocInstructions($tocElement) = 'no_toc') and
+          oo:isInlineTocLast($prevtoc)">
+        <element name="milestone"
+            namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
+          <attribute name="type" select="concat('x-usfm-toc', $TOC)"/>
+          <attribute name="n" select="'[no_toc]x-end'"/>
+        </element>
+      </if>
+    </if>
+  </template>
+
+  <!-- The x-aggregate glossary is used in the combined glossary when
+  doCombineGlossaries is true (and x-keyword-duplicate keywords are NOT
+  included in the combined glossary). This means that links to
+  x-keyword-duplicate keywords need to be redirected to their aggregated
+  entries by the 'reference' template. -->
+  <template mode="preprocess" match="
+      div[@type='glossary'][@subType='x-aggregate'] |
+      div[@type='glossary'][$doCombineGlossaries][not(ancestor::osis[@isCombinedGlossary='yes'])] |
+      div[@type='glossary'][@annotateType='x-feature'][@annotateRef='INT'][$DICTMOD][oc:docWork(.)=$DICTMOD] |
+      div[@type='glossary'][@scope='NAVMENU']"/>
   <template mode="preprocess" match="list[@resp='x-oc'][@subType='x-navmenu']"/>
+
   <!-- These variables are used to match any removed DICTMOD INT keywords to
   a Bible intro title, to fix any references to those keywords. -->
-  <variable name="INT_osisID" as="xs:string*" select="$referenceOSIS/descendant::div
-      [self::div[@annotateType='x-feature'][@annotateRef='INT'] | self::div[@scope='NAVMENU']]/
+  <variable name="INT_osisID" as="xs:string*" select="
+      $referenceOSIS/descendant::div
+      [
+        self::div[@annotateType='x-feature'][@annotateRef='INT'] |
+        self::div[@scope='NAVMENU']
+      ]/
       descendant::*[@osisID]/replace(@osisID, '^[^:]*:', '')"/>
-  <variable name="INT_title" as="xs:string*" select="for $id in $INT_osisID return oc:decodeOsisRef($id)"/>
-  <variable name="INT_titleElement" as="element(title)*"
-      select="$mainInputOSIS/descendant::div[@annotateType='x-feature'][@annotateRef='INT']/
-              descendant::title[string() = $INT_title]
-                                              "/>
+  <variable name="INT_title" as="xs:string*" select="
+      for $id in $INT_osisID return oc:decodeOsisRef($id)"/>
+  <variable name="INT_titleElement" as="element(title)*" select="
+      $mainInputOSIS/descendant::div
+      [@annotateType='x-feature'][@annotateRef='INT']/
+      descendant::title[string() = $INT_title]"/>
   <template mode="preprocess" match="reference[@osisRef]/@osisRef">
     <!-- x-glossary and x-glosslink references may have multiple targets;
     remove any that don't resolve, and keep only the first that does. -->
     <variable name="docwork" select="oc:docWork(.)"/>
     <variable name="osisRef1" select="(
         for $r in tokenize(., '\s+') return
-        if ( oc:work($r, $docwork) != $DICTMOD or oc:key('osisID', $referenceOSIS, $DICTMOD, oc:ref($r)) )
-        then $r else ''
+        if (
+          oc:work($r, $docwork) = $MAINMOD or
+          oc:key('osisID', $referenceOSIS, $DICTMOD, oc:ref($r))
+        )
+        then $r
+        else ''
       )[normalize-space()][1]"/>
 
     <!-- when using the combined glossary, redirect duplicates to the combined glossary -->
@@ -1213,90 +1207,7 @@
     </variable>
     <attribute name="osisRef" select="$result"/>
   </template>
-  <!-- All TOC elements (milestone, chapter, seg) must have @n attribute
-  specifying [levelN]. Also a [no_toc] milestone must be inserted before
-  each TOC element that is imediately preceded by a [inline_toc_last]
-  TOC element, to act as the default placement target. -->
-  <template mode="preprocess" match="milestone[@type=concat('x-usfm-toc', $TOC)]">
-    <call-template name="endingNoToc"/>
-    <copy>
-      <apply-templates mode="#current" select="@*[local-name() != 'n']"/>
-      <if test="self::*[. intersect $mainTocMilestone]">
-        <attribute name="isMainTocMilestone" select="'true'"/>
-      </if>
-      <if test="not(@osisID) or not(matches(@osisID, '\S'))">
-        <attribute name="osisID" select="generate-id(.)"/>
-      </if>
-      <variable name="n" as="xs:string+">
-        <if test="not(matches(@n, '\[level(\d)\]'))">
-          <value-of select="concat('[level', oo:getTocLevel(., true()), ']')"/>
-        </if>
-        <if test="not(matches(@n, '\[(inline_toc_first|inline_toc_last)\]'))">
-          <value-of select="
-              if (oo:isInlineTocLast(.))
-              then '[inline_toc_last]'
-              else '[inline_toc_first]'"/>
-        </if>
-        <if test="@n"><value-of select="@n"/></if>
-      </variable>
-      <attribute name="n" select="string-join($n, '')"/>
-      <apply-templates mode="#current"/>
-    </copy>
-  </template>
-  <template mode="preprocess" match="seg[@type='keyword'] | chapter[@osisID]">
-    <call-template name="endingNoToc"/>
-    <copy>
-      <apply-templates mode="#current" select="@*[local-name() != 'n']"/>
-      <variable name="n" as="xs:string+">
-        <if test="not(matches(@n, '\[level(\d)\]'))">
-          <variable name="prevMilestoneTOC" as="element()?" select="
-            preceding::milestone[@type=concat('x-usfm-toc', $TOC)]
-            [not(matches(@n, '\[not_parent\]'))][1]"/>
-          <variable name="prevMilestoneTOCLevel" select="
-            if ($prevMilestoneTOC)
-            then oo:getTocLevel($prevMilestoneTOC, true())
-            else 0"/>
-          <value-of select="concat('[level', $prevMilestoneTOCLevel + 1, ']')"/>
-        </if>
-        <if test="not(matches(@n, '\[(inline_toc_first|inline_toc_last)\]'))">
-          <value-of select="
-              if (oo:isInlineTocLast(.))
-              then '[inline_toc_last]'
-              else '[inline_toc_first]'"/>
-        </if>
-        <if test="@n"><value-of select="@n"/></if>
-      </variable>
-      <attribute name="n" select="string-join($n, '')"/>
-      <apply-templates mode="#current" select="node()"/>
-    </copy>
-  </template>
-  <template mode="preprocess" match="div[starts-with(@type, 'x-keyword')]">
-    <call-template name="endingNoToc"/>
-    <next-match/>
-  </template>
-  <template name="endingNoToc" as="element(milestone)?">
-    <if test="not(self::seg[@type='keyword'])">
-      <variable name="tocElement" as="element()" select="
-        if (self::div[starts-with(@type, 'x-keyword')])
-        then descendant::seg[@type='keyword'][1]
-        else ."/>
-      <variable name="prevtoc" as="element()?" select="
-        preceding::*[
-          self::chapter[@osisID] or
-          self::seg[@type='keyword'] or
-          self::milestone[@type=concat('x-usfm-toc', $TOC)]
-        ][not(oo:getTocInstructions(.) = 'no_toc')][1]"/>
-      <if test="
-          not(oo:getTocInstructions($tocElement) = 'no_toc') and
-          oo:isInlineTocLast($prevtoc)">
-        <element name="milestone"
-            namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
-          <attribute name="type" select="concat('x-usfm-toc', $TOC)"/>
-          <attribute name="n" select="'[no_toc]x-end'"/>
-        </element>
-      </if>
-    </if>
-  </template>
+
   <template mode="preprocess" match="
       title[oc:docWork(.) = $MAINMOD]
       [ancestor::div[@annotateType='x-feature'][@annotateRef='INT']]
@@ -1310,7 +1221,7 @@
 <with-param name="msg">Adding INT osisID <value-of select="concat(oc:encodeOsisRef(string()),'!INT')"/></with-param>
     </call-template>
   </template>
-  <!-- osisIDs do not have workid prefixes -->
+  <!-- osisIDs should NOT have workid prefixes -->
   <template mode="preprocess" match="@osisID">
     <attribute name="osisID" select="replace(., '^[^:]*:', '')"/>
     <if test="tokenize(.,':')[2] and tokenize(.,':')[1] != oc:docWork(.)">
@@ -1320,115 +1231,86 @@
     </if>
   </template>
 
-  <!-- preprocess_removeSectionDivs -->
-  <template mode="preprocess_removeSectionDivs" match="div[ends-with(lower-case(@type), 'section')]">
-    <apply-templates mode="preprocess_removeSectionDivs"/>
+  <!-- preprocess_removeDivs -->
+  <!-- An FB2 section parent must be body or section, and its siblings must
+  also be section elements. Chapter, keyword and milestone detached-TOC
+  elements are all transformed into toc-section divs, and this preprocess step
+  is to insure the fb2 section schema will be met after transformation. So the
+  strategy is to remove all div elements and flatten all input documents. Then
+  successively group children by tocElement level 1, 2 then 3 where each group
+  leader is either a TOC element or child[1].
+  NOTES:
+  - The toc-section divs solely determine the detached TOC (whereas the inline
+    TOC is a collection of links created from each TOC element).
+  - For html output, each toc-section div is always output to its own HTML file.
+  - The main document's first non-header child always leads the first toc-
+    section, and it must be a TOC element, so the first TOC element of the main
+    document must come before the first text node or an error is thrown. -->
+  <template mode="preprocess_removeDivs" priority="1" match="div[starts-with(@type, 'x-keyword')]">
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
 
-  <!-- preprocess_expelChapterTags -->
-  <template mode="preprocess_expelChapterTags" match="*[parent::div[@type='book']]">
-    <variable name="book" select="parent::*/@osisID"/>
-    <sequence select="oc:expelElements(., descendant::chapter[starts-with(@sID, concat($book, '.'))], (), false())"/>
+  <template mode="preprocess_removeDivs" match="div">
+    <osis:div emptied="true">
+      <apply-templates mode="#current" select="@*"/>
+    </osis:div>
+    <apply-templates mode="#current"/>
   </template>
 
-  <!-- preprocess_glossTocMenus -->
-  <template mode="preprocess_glossTocMenus" match="div[@type='glossary']">
-    <variable name="my_glossaryToc" as="xs:string" select="
-        if (
-            count(distinct-values(
-              descendant::seg[@type='keyword']/oc:keySortLetter(string())
-            )) = 1
+  <!-- Mark all TOC elements with sectionLevel to be used for subsequent
+  grouping into sections during the sections mode. These section elements
+  will solely determine the detached TOC. -->
+  <template mode="preprocess_removeDivs" priority="2" match="
+      chapter[@osisID] |
+      div[starts-with(@type, 'x-keyword')] |
+      milestone[@type=concat('x-usfm-toc', $TOC)]">
+    <variable name="tocElement" as="element()?" select="
+      if (self::div[starts-with(@type, 'x-keyword')])
+      then descendant::seg[@type='keyword'][1]
+      else ."/>
+    <variable name="instructions" select="oo:getTocInstructions($tocElement)"/>
+    <variable name="level" select="oo:getTocLevelPRE($tocElement)"/>
+    <variable name="classes" select="
+        normalize-space(
+          string-join(
+            distinct-values((
+                'calibre',
+                root(.)//work[@osisWork = oc:docWork(.)]/type/@type,
+                ancestor-or-self::*[@scope][1]/@scope,
+                parent::*/@type,
+                parent::*/@subType
+              )),
+            ' '
           )
-        then 'single'
-        else if (
-            $glossaryToc = 'letter' or
-            (
-              $glossaryToc = 'AUTO' and
-              count(descendant::div[starts-with(@type,'x-keyword')])
-                &#62;= $glossaryTocAutoThresh
-            )
-          )
-        then 'letter'
-        else 'single'"/>
-    <variable name="my_keywordFile" select="
-        if (count(descendant::seg[@type='keyword']) = 1)
-        then 'glossary'
-        else if (
-            self::div[@annotateType='x-feature' and @annotateRef='NO_TOC']
-          )
-        then 'single'
-        else if ($keywordFile != 'AUTO')
-        then $keywordFile
-        else if (
-            count(descendant::div[starts-with(@type, 'x-keyword')])
-            &#60; $keywordFileAutoThresh
-          )
-        then 'glossary'
-        else 'letter'"/>
-    <call-template name="Note">
-<with-param name="msg">Glossary menus: <value-of select="oc:getDivTitle(.)"/>, my_glossaryToc=<value-of select="$my_glossaryToc"/>, my_keywordFile=<value-of select="$my_keywordFile"/></with-param>
-    </call-template>
-    <variable name="glossary" as="element(div)">
-      <copy>
-        <choose>
-          <when test="$my_glossaryToc = 'letter' and $my_keywordFile = 'single'">
-            <apply-templates mode="#current" select="@*"/>
-            <variable name="keywords" as="node()*">
-              <apply-templates mode="#current"/>
-            </variable>
-            <sequence select="oc:setKeywordTocInstruction($keywords, '[no_toc]')"/>
-            <sequence select="oc:glossaryMenu(., 'no', 'yes', false())"/>
-          </when>
-          <when test="$my_glossaryToc = 'letter'">
-            <!-- copy everything except x-keyword divs, which are replaced by
-            glossaryMenu() because last arg is true() -->
-            <copy-of select="@* | node()[not(self::div[starts-with(@type,'x-keyword')])]"/>
-            <sequence select="oc:glossaryMenu(., 'no', 'yes', true())"/>
-          </when>
-          <otherwise>
-            <apply-templates mode="#current" select="node()|@*"/>
-          </otherwise>
-        </choose>
-      </copy>
-    </variable>
-    <!-- A huge speedup is gained by calculating a glossaryGroup attribute
-    here, rather than calculating groups in divideFiles and getFileName -->
-    <apply-templates mode="preprocess_addGroupAttribs" select="$glossary">
-      <with-param name="my_keywordFile" select="$my_keywordFile" tunnel="yes"/>
-    </apply-templates>
+        )"/>
+    <choose>
+      <when test="$instructions = ('no_toc', 'only_inline_toc')">
+        <next-match/>
+      </when>
+      <otherwise>
+        <copy>
+          <attribute name="sectionLevel" select="$level"/>
+          <attribute name="sectionClasses" select="$classes"/>
+          <apply-templates mode="#current" select="node()|@*"/>
+        </copy>
+      </otherwise>
+    </choose>
   </template>
-  <template mode="preprocess_addGroupAttribs" match="div[@type='glossary']">
+
+  <template mode="preprocess_removeDivs" priority="1" match="comment()"/>
+  <template mode="preprocess_removeDivs" match="title[@type='runningHead']"/>
+
+  <!-- preprocess_sections -->
+  <template mode="preprocess_sections" match="osisText">
     <copy>
-      <apply-templates mode="preprocess_addGroupAttribs" select="@*"/>
-      <attribute name="glossaryGroup" select="'0'"/>
-      <apply-templates mode="preprocess_addGroupAttribs"/>
+      <apply-templates mode="#current" select="@*"/>
+      <sequence select="./header"/>
+      <sequence select="oo:sections(./node()[not(self::header)], 1)"/>
     </copy>
   </template>
-  <template mode="preprocess_addGroupAttribs" match="div[starts-with(@type,'x-keyword')]">
-    <param name="my_keywordFile" tunnel="yes"/>
-    <copy>
-      <apply-templates mode="preprocess_addGroupAttribs" select="@*"/>
-      <variable name="group" as="xs:integer">
-        <choose>
-          <when test="$my_keywordFile = 'single'">
-            <value-of select="1 + count(preceding::div[starts-with(@type, 'x-keyword')])"/>
-          </when>
-          <when test="$my_keywordFile = 'letter'">
-            <value-of select="count(distinct-values(
-              (preceding::div | self::div)/descendant::seg[@type='keyword']/
-                (
-                  if (ancestor::div[@subType='x-navmenu-all-keywords']) then string()
-                  else oc:keySortLetter(string())
-                )
-            ))"/>
-          </when>
-          <otherwise><value-of select="0"/></otherwise>
-        </choose>
-      </variable>
-      <attribute name="glossaryGroup" select="$group"/>
-      <apply-templates mode="preprocess_addGroupAttribs"/>
-    </copy>
-  </template>
+
+  <template mode="preprocess_sections" priority="1" match="@sectionLevel"/>
+  <template mode="preprocess_sections" priority="1" match="@sectionClasses"/>
 
   <!-- #################################################################### -->
   <!--                TRANSFORM OSIS INTO OTHER MARKUP                      -->
@@ -1485,20 +1367,19 @@
   </template>
 
   <!-- FB2 sections with title:
-  @type='fb2:section' was added during FB2 precrocessing.-->
-  <template mode="tran" priority="2" match="div[@type='fb2:section']">
-    <param name="preprocessedMainOSIS" tunnel="yes"/>
-    <param name="preprocessedRefOSIS" tunnel="yes"/>
-    <param name="combinedGlossary" tunnel="yes"/>
-    <variable name="tocElement" select="
-      (descendant-or-self::*[
-        self::chapter[@osisID] or
-        self::seg[@type='keyword'] or
-        self::milestone[@type=concat('x-usfm-toc', $TOC)]
-      ])[1]"/>
+  @type='toc-section' was added during FB2 precrocessing.-->
+  <template mode="tran" priority="2" match="div[@type='toc-section']">
     <choose>
-      <when test="$target = 'html'"><next-match/></when>
+      <when test="$target = 'html'">
+        <apply-templates mode="tran"/>
+      </when>
       <when test="$target = 'fb2'">
+        <variable name="tocElement" select="
+          (descendant-or-self::*[
+            self::chapter[@osisID] or
+            self::seg[@type='keyword'] or
+            self::milestone[@type=concat('x-usfm-toc', $TOC)]
+          ])[1]"/>
         <variable name="content" as="node()*">
           <apply-templates mode="tran"/>
         </variable>
@@ -1572,18 +1453,19 @@
   Futhermore, IF there are TOC children, any resulting inline TOC WILL also
   include a title UNLESS that title is a duplicate title. An inline TOC title
   is considered a duplicate title when it is an inline_toc_first, or an
-  inline_toc_last apparent as first, and its title matches the fb2:section
+  inline_toc_last apparent as first, and its title matches the toc-section
   title, the chapter title, or a regular title. Regardless, all regular TOC
   elements (i.e. not having [no_toc] or [only_inline_toc]) when rendered to
   html, will always output an element having the toclevel-N attribute required
   by the Calibre converter plugin call. -->
   <template mode="tran" priority="2" match="milestone[@type=concat('x-usfm-toc', $TOC)] | chapter[@osisID]">
-    <param name="preprocessedMainOSIS" tunnel="yes"/>
-    <param name="preprocessedRefOSIS" tunnel="yes"/>
-    <param name="combinedGlossary" tunnel="yes"/>
+    <param name="docs" tunnel="yes"/>
 
-    <!-- be sure to keep FB2 osisID -->
-    <sequence select="oo:writeOsisID(@osisID)"/>
+    <!-- Be sure to keep FB2 osisID, since oo:getTocAttributes writes them but
+    is only called for HTML. -->
+    <if test="$target = 'fb2'">
+      <sequence select="oo:writeOsisID(@osisID)"/>
+    </if>
 
     <!-- A preceding [inline_toc_last] TOC element writes its inline TOC just
     before this TOC element (even if this one is [no_toc]). -->
@@ -1598,23 +1480,16 @@
       <sequence select="oo:getElementInlineTOC(
           .,
           oo:isDuplicateTitle(., $current, $prevTocTitle),
-          $preprocessedMainOSIS,
-          $preprocessedRefOSIS,
-          $combinedGlossary
+          $docs
         )"/>
     </for-each>
 
     <if test="not(oo:getTocInstructions(.) = 'no_toc')">
       <!-- If this is the first milestone in a Bible, then first write the main
-      TOC (but FB2 creates its own main inline TOC, so it's not needed for FB2). -->
+      TOC. -->
       <variable name="mainInlineTOC" select="
-        if (@isMainTocMilestone = 'true' and $target != 'fb2')
-        then oc:getMainInlineTOC(
-            .,
-            $preprocessedMainOSIS,
-            $preprocessedRefOSIS,
-            $combinedGlossary
-          )
+        if (@isMainTocMilestone = 'true')
+        then oc:getMainInlineTOC(., $docs)
         else ()"/>
 
       <if test="$target = 'html'">
@@ -1661,9 +1536,7 @@
           oo:getElementInlineTOC(
             .,
             $mainInlineTOC or oo:isDuplicateTitle(., ., ''),
-            $preprocessedMainOSIS,
-            $preprocessedRefOSIS,
-            $combinedGlossary
+            $docs
           )"/>
       </if>
     </if>
@@ -1706,14 +1579,16 @@
 
   <!-- Glossary entries -->
   <template mode="tran" priority="3" match="div[starts-with(@type,'x-keyword')]">
-    <param name="preprocessedRefOSIS" tunnel="yes"/>
+    <param name="docs" tunnel="yes"/>
     <variable name="disambigHeading" as="node()*">
       <if test="
           not(ancestor-or-self::div[@resp='x-oc']) and
           not($doCombineGlossaries) and
-          oo:getTocLevel((.//seg[@type='keyword'])[1], false()) = 1 and
+          oo:getTocLevel((.//seg[@type='keyword'])[1]) = 1 and
           count(distinct-values(
-            $preprocessedRefOSIS//div[@type='glossary']/
+            $docs[$DICTMOD][oc:docWork(.)=$DICTMOD]
+            [not(child::osis[@isCombinedGlossary='yes'])]//
+            div[@type='glossary']/
             oc:getDivScopeTitle(.)
           )) &#62; 1">
         <variable name="heading" as="node()*">
@@ -1872,7 +1747,7 @@
         <element name="{if ($html5 = 'true') then 'figure' else 'div'}"
             namespace="http://www.w3.org/1999/xhtml">
           <call-template name="classes"/>
-          <html:img src="{oc:uriToRelativePath(concat('/html/', $contextFile), @src)}" alt="{@src}"/>
+          <html:img src="{oc:uriToRelativePath(concat('/', $contextFile), @src)}" alt="{@src}"/>
           <apply-templates mode="tran"/>
         </element>
       </when>
@@ -2065,10 +1940,6 @@
     </choose>
   </template>
 
-  <template mode="tran" match="list[@subType='x-navmenu'][following-sibling::*[1][self::chapter[@eID]]]">
-    <if test="$eachChapterIsFile"><next-match/></if>
-  </template>
-
   <template mode="tran" priority="3" match="milestone[@type=concat('x-usfm-toc', $TOC)][preceding-sibling::seg[@type='keyword']]">
     <param name="currentTask" tunnel="yes"/>
     <if test="$currentTask = 'write-output'">
@@ -2171,17 +2042,20 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   </template>
 
   <template mode="tran" match="reference[@subType='x-other-resource']">
-    <param name="preprocessedMainOSIS" tunnel="yes"/>
+    <param name="docs" tunnel="yes"/>
     <param name="contextFile" select="oo:getFileName(.)" tunnel="yes"/>
     <choose>
       <when test="$target = 'html'">
         <choose>
           <when test="$FullResourceURL and $FullResourceURL != 'false'">
-            <variable name="file"
-              select="oo:getFileNameOfRef($preprocessedMainOSIS/descendant::div[@type='book'][last()]/@osisID)"/>
+            <variable name="file" select="
+                oo:getFileName(
+                  $docs[oc:docWork(.)=$MAINMOD]/
+                  descendant::div[@type='book'][last()]
+                )"/>
             <variable name="href" select="oc:uriToRelativePath(
-                concat('/html/', $contextFile),
-                concat('/html/', $file, '#fullResourceURL'))"/>
+                concat('/', $contextFile),
+                concat('/', $file, '#fullResourceURL'))"/>
             <html:a href="{$href}"><call-template name="classedContent"/></html:a>
           </when>
           <otherwise>
@@ -2209,14 +2083,14 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </choose>
   </template>
 
-  <!-- references with href are used by this transform to reference specific files -->
+  <!-- References with href are created in the divideFiles $fileXHTML_0
+  variable to reference targets in arbitrary files from the given context. -->
   <template mode="tran" match="reference[@href]">
     <param name="contextFile" select="oo:getFileName(.)" tunnel="yes"/>
     <choose>
       <when test="$target = 'html'">
-        <variable name="href"
-          select="oc:uriToRelativePath(concat('/html/', $contextFile), @href)"/>
-        <html:a href="{$href}">
+        <html:a href="{
+            oc:uriToRelativePath(concat('/', $contextFile), @href)}">
           <call-template name="classedContent"/>
         </html:a>
       </when>
@@ -2227,108 +2101,108 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   </template>
 
   <template mode="tran" match="reference">
-    <param name="preprocessedMainOSIS" tunnel="yes"/>
-    <param name="preprocessedRefOSIS" tunnel="yes"/>
-    <param name="combinedGlossary" tunnel="yes"/>
+    <param name="docs" tunnel="yes"/>
     <param name="contextFile" select="oo:getFileName(.)" tunnel="yes"/>
 
     <!-- All osisRef attributes should have a workid from preprocessing. -->
     <variable name="workid" select="tokenize(@osisRef, ':')[1]"/>
-    <variable name="osisRef" select="tokenize(@osisRef, ':')[2]"/>
+    <variable name="osisID" select="tokenize(@osisRef, ':')[2]"/>
 
-    <!-- The isScriptureRef variable is used to get a big speedup, by not
-    looking up the Scripture reference targets to get their source file. The
-    cost is that references to the main OSIS file are limited to Scripture
-    references, $REF_BibleTop and osisIDs containing '!'. -->
+    <!-- References to the main OSIS file are limited to Scripture references,
+    $REF_BibleTop and osisIDs containing '!'. The oo:getFileName function can
+    not be used for Scripture references directly because the verse targets do
+    NOT exist in the source OSIS, but are instead currently being added during
+    mode="tran". -->
     <variable name="isScriptureRef" as="xs:boolean" select="
       $isBible and
       $workid = $MAINMOD and
+      $osisID and
       @osisRef != $REF_BibleTop and
       not(contains(@osisRef, '!'))"/>
-    <variable name="targetElement" as="element()*">
+    <variable name="scripRef" select="
+      if ($isScriptureRef) then tokenize($osisID, '\-')[1] else ''"/>
+    <variable name="srp" select="count(tokenize($scripRef, '\.'))"/>
+    <variable name="targOsisID" select="
+        if (not($isScriptureRef))
+        then $osisID
+        else if ($srp = 1)
+        then concat($scripRef, '.1.1')
+        else if ($srp = 2)
+        then concat($scripRef, '.1')
+        else $scripRef"/>
+    <variable name="targetElement" as="element()*" select="
+        if ($isScriptureRef)
+        then oo:targetElement(
+          concat(
+            $MAINMOD,
+            ':',
+            string-join(tokenize($targOsisID, '\.')[position() &#60;= 2], '.')
+          ),
+          $docs
+        )
+        else oo:targetElement(@osisRef, $docs)"/>
+    <variable name="targetFile" as="xs:string?">
       <choose>
-        <when test="
-          $isScriptureRef or
-          @osisRef = ($REF_BibleTop, $REF_DictTop)"/>
-        <otherwise>
-          <sequence select="
-            oo:targetElement(
-              @osisRef,
-              ($preprocessedMainOSIS, $preprocessedRefOSIS, $combinedGlossary)
-            )"/>
-        </otherwise>
-      </choose>
-    </variable>
-    <variable name="file" as="xs:string?">
-      <choose>
-        <when test="$target = 'fb2'">fb2</when>
-        <when test="not($osisRef)"/>
-        <when test="$isScriptureRef">
-          <value-of select="oo:getFileNameOfRef(@osisRef)"/>
-        </when>
+        <when test="not($targOsisID)"/><!-- will throw error -->
+        <when test="$target = 'fb2'">none</when>
         <when test="@osisRef = $REF_BibleTop">
-          <value-of select="oo:getFileName($preprocessedMainOSIS)"/>
+          <value-of select="oo:getFileName(
+                $docs[oc:docWork(.)=$MAINMOD]/
+                descendant::*[contains(@n, '[level1]')]
+                [not(contains(@n, '[no_toc]'))]
+                [1]
+              )"/>
         </when>
         <when test="@osisRef = $REF_DictTop">
-          <value-of select="if ($doCombineGlossaries) then
-                            oo:getFileName($combinedGlossary) else
-                            oo:getFileName($preprocessedRefOSIS)"/>
-        </when>
-        <otherwise><!-- references to non-bible -->
-          <choose>
-            <when test="count($targetElement) = 1">
-              <value-of select="oo:getFileName($targetElement)"/>
-            </when>
-            <when test="count($targetElement) = 0">
-              <call-template name="Error">
-<with-param name="msg">Target osisID not found for <value-of select="oc:printNode(.)"/></with-param>
-              </call-template>
-            </when>
-            <otherwise>
-              <call-template name="Error">
-<with-param name="msg">Multiple targets have the same osisID (<value-of select="count($targetElement)"/>) when osisID is <value-of select="@osisRef"/></with-param>
-              </call-template>
-            </otherwise>
-          </choose>
-        </otherwise>
-      </choose>
-    </variable>
-    <variable name="htmlID" as="xs:string?">
-      <choose>
-        <when test="not($file)"/>
-        <when test="not($isScriptureRef)">
-          <value-of select="oc:id($osisRef)"/>
-        </when>
-        <when test="@osisRef = ($REF_BibleTop, $REF_DictTop)">
-          <value-of select="if ($target = 'fb2') then $osisRef else ''"/>
-        </when>
-        <otherwise>  <!--other refs are to Scripture, so jump to first verse of range  -->
-          <variable name="osisRefStart" select="tokenize($osisRef, '\-')[1]"/>
-          <variable name="spec" select="count(tokenize($osisRefStart, '\.'))"/>
-          <variable name="verse" select="if ($spec=1) then
-                                         concat($osisRefStart, '.1.1') else
-                                        ( if ($spec=2) then
-                                          concat($osisRefStart, '.1') else
-                                          $osisRefStart )"/>
           <value-of select="
-            if ($target = 'fb2') then $verse else oc:id($verse)"/>
+              if ($doCombineGlossaries)
+              then oo:getFileName(
+                  $docs[child::osis[@isCombinedGlossary='yes']]/
+                  descendant::*[contains(@n, '[level1]')]
+                  [not(contains(@n, '[no_toc]'))]
+                  [1]
+                )
+              else if ($DICTMOD)
+              then oo:getFileName(
+                  $docs[oc:docWork(.)=$DICTMOD]
+                  [not(child::osis[@isCombinedGlossary='yes'])]/
+                  descendant::*[contains(@n, '[level1]')]
+                  [not(contains(@n, '[no_toc]'))]
+                  [1]
+                )
+              else ''"/>
+        </when>
+        <when test="count($targetElement) = 1">
+          <value-of select="oo:getFileName($targetElement)"/>
+        </when>
+        <when test="count($targetElement) = 0">
+          <call-template name="Error">
+<with-param name="msg">Target osisID not found for <value-of select="oc:printNode(.)"/></with-param>
+          </call-template>
+        </when>
+        <otherwise>
+          <call-template name="Error">
+<with-param name="msg">Multiple targets have the same osisID (<value-of select="count($targetElement)"/>) when osisID is <value-of select="@osisRef"/></with-param>
+          </call-template>
         </otherwise>
       </choose>
     </variable>
-    <variable name="fragment" select="if ($htmlID) then concat('#', $htmlID) else ''"/>
+    <variable name="targetFragment" as="xs:string?" select="
+        if ($targOsisID) then concat('#', oc:id($targOsisID)) else ''"/>
+
     <choose>
-      <when test="not($file)">
+      <when test="not($targetFile)">
         <apply-templates mode="tran"/>
         <call-template name="Error">
-<with-param name="msg">Could not determine source file for <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
+<with-param name="msg">Could not determine source file for reference '<value-of select="string()"/>' with osisRef="<value-of select="@osisRef"/>"</with-param>
         </call-template>
       </when>
       <when test="$target = 'html'">
-        <variable name="href"
-            select="oc:uriToRelativePath(
-                      concat('/html/', $contextFile),
-                      concat('/html/', $file, $fragment))"/>
-        <html:a href="{$href}">
+        <html:a href="{
+            oc:uriToRelativePath(
+              concat('/', $contextFile),
+              concat('/', $targetFile, $targetFragment)
+            )}">
           <call-template name="classedContent"/>
         </html:a>
       </when>
@@ -2336,7 +2210,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         <choose>
           <when test="oo:isGlossaryNote(.)">
             <apply-templates mode="tran"/>
-            <fb2:a xlink:href="{$fragment}.note" type="note">
+            <fb2:a xlink:href="{$targetFragment}.note" type="note">
               <fb2:sup>
                 <call-template name="getFootnoteSymbol">
                   <with-param name="parentName" select="'x'"/>
@@ -2345,7 +2219,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
             </fb2:a>
           </when>
           <otherwise>
-            <fb2:a xlink:href="{$fragment}">
+            <fb2:a xlink:href="{$targetFragment}">
               <call-template name="classedContent">
                 <with-param name="parentName" select="'x'"/>
               </call-template>
@@ -2354,6 +2228,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         </choose>
       </when>
     </choose>
+
   </template>
 
   <template mode="tran" match="row">
@@ -2388,10 +2263,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   places for osisIDs. Now they are transformed into fb2 elements until
   their final use and removal during FB2 postprocessing. -->
   <template mode="tran" priority="5" match="div[@emptied]">
-    <if test="@osisID">
-      <fb2:tmpOsisID osisID="{@osisID}"/>
-      <fb2:tmpOsisID osisID="{oc:id(@osisID)}"/>
-    </if>
+    <sequence select="oo:writeOsisID(@osisID)"/>
   </template>
 
   <!-- #################################################################### -->
@@ -2403,15 +2275,20 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     <copy><apply-templates mode="postprocess" select="node()|@*"/></copy>
   </template>
   <!-- Don't output duplicate inline-TOC tites -->
-  <template mode="postprocess" match="html:h1 | html:h2 | html:h3" priority="2">
-    <variable name="precedingTOC" select="self::*[contains(@class, 'osis-title')]/
-        preceding::text()[normalize-space()][1]/ancestor::html:div[contains(@class, 'xsl-inline-toc')][1]"/>
-    <variable name="duplicateTitle"
-        select="lower-case($precedingTOC[1]/preceding::text()[normalize-space()][1][parent::html:h1]) = lower-case(string())"/>
+  <template mode="postprocess" priority="2" match="html:h1 | html:h2 | html:h3">
+    <variable name="precedingTOC" select="
+        self::*[contains(@class, 'osis-title')]/
+        preceding::text()[normalize-space()][1]/
+        ancestor::html:div[contains(@class, 'xsl-inline-toc')][1]"/>
+    <variable name="duplicateTitle" select="
+        lower-case(
+          $precedingTOC[1]/preceding::text()
+          [normalize-space()][1][parent::html:h1]
+        ) = lower-case(string())"/>
     <if test="not($duplicateTitle)"><next-match/></if>
   </template>
   <!-- Remove html prefixes -->
-  <template mode="postprocess" match="*[namespace-uri()='http://www.w3.org/1999/xhtml']" priority="1">
+  <template mode="postprocess"  priority="1" match="*[namespace-uri()='http://www.w3.org/1999/xhtml']">
    <element name="{local-name()}" namespace="http://www.w3.org/1999/xhtml">
      <apply-templates mode="postprocess" select="node()|@*"/>
    </element>
@@ -2422,84 +2299,92 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   <!-- #################################################################### -->
 
   <template name="preprocessMain">
+    <if test="not($mainTocMilestone)">
+      <call-template name="Error">
+<with-param name="msg">No main TOC milestone was found.</with-param>
+<with-param name="exp">Add a TOC tag at the beginning of the main document.</with-param>
+      </call-template>
+    </if>
     <variable name="preprocess">
       <apply-templates mode="preprocess" select="/"/>
     </variable>
-    <choose>
-      <when test="
-        $target = 'fb2' or
-        $eachChapterIsFile or
-        $isChildrensBible or
-        $isGenericBook">
-        <variable name="removeSectionDivs">
-          <apply-templates mode="preprocess_removeSectionDivs" select="$preprocess"/>
-        </variable>
-        <apply-templates mode="preprocess_expelChapterTags" select="$removeSectionDivs"/>
-      </when>
-      <otherwise><sequence select="$preprocess"/></otherwise>
-    </choose>
+    <variable name="removeDivs">
+      <apply-templates mode="preprocess_removeDivs" select="$preprocess"/>
+    </variable>
+    <apply-templates mode="preprocess_sections" select="$removeDivs"/>
   </template>
 
   <template name="preprocessDict">
-    <variable name="preprocess">
-      <apply-templates mode="preprocess" select="$referenceOSIS"/>
+    <variable name="glossaries">
+      <apply-templates mode="preprocess_glossaries" select="$referenceOSIS"/>
     </variable>
-    <apply-templates mode="preprocess_glossTocMenus" select="$preprocess"/>
+    <variable name="preprocess">
+      <apply-templates mode="preprocess" select="$glossaries"/>
+    </variable>
+    <variable name="removeDivs">
+      <apply-templates mode="preprocess_removeDivs" select="$preprocess"/>
+    </variable>
+    <apply-templates mode="preprocess_sections" select="$removeDivs"/>
   </template>
 
   <template name="combinedGlossary">
     <if test="$doCombineGlossaries">
-      <variable name="combinedGlossary_0">
-        <variable name="combinedKeywords" as="element(div)*"
-            select="$referenceOSIS/descendant::div[@type='glossary']/
-                      descendant::div[starts-with(@type, 'x-keyword')]
-                                    [not(@type = 'x-keyword-duplicate')]
-                                    [not(ancestor::div[@scope='NAVMENU'])]"/>
+
+      <variable name="combinedGlossary">
+        <variable name="combinedKeywords" as="element(div)*" select="
+            $referenceOSIS/descendant::div[@type='glossary']/
+            descendant::div[starts-with(@type, 'x-keyword')]
+            [not(@type = 'x-keyword-duplicate')]
+            [not(ancestor::div[@scope='NAVMENU'])]"/>
         <if test="$combinedKeywords">
-          <call-template name="WriteCombinedGlossary">
-            <with-param name="combinedKeywords" select="$combinedKeywords"/>
-          </call-template>
-        </if>
-        <for-each select="$referenceOSIS/descendant::div[@type='glossary']
-          [child::node()[not(self::div[starts-with(@type, 'x-keyword')])]
-                        [descendant-or-self::text()[normalize-space()]] ]">
-          <call-template name="Warn">
+          <!-- Write a single glossary that combines all other glossaries
+          together. Note: x-keyword-duplicate entries are dropped because
+          they are already included in the x-aggregate glossary -->
+          <osis:osis isCombinedGlossary="yes">
+            <osis:osisText osisRefWork="{$DICTMOD}" osisIDWork="{$DICTMOD}">
+              <osis:div type="glossary">
+                <osis:milestone
+                  type="x-usfm-toc{$TOC}"
+                  n="[level1]{$CombindedGlossaryTitle}"
+                  osisID="CombinedGlossary"/>
+                <osis:title type="main">
+                  <value-of select="$CombindedGlossaryTitle"/>
+                </osis:title>
+                <for-each select="$combinedKeywords">
+                  <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending"
+                    collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
+                  <apply-templates mode="addDisambiguationHeading" select="."/>
+                </for-each>
+              </osis:div>
+            </osis:osisText>
+          </osis:osis>
+          <!-- Report any dropped text -->
+          <for-each select="
+              $referenceOSIS/descendant::div[@type='glossary']
+              [child::node()[not(self::div[starts-with(@type, 'x-keyword')])]
+              [descendant-or-self::text()[normalize-space()]] ]">
+            <call-template name="Warn">
 <with-param name="msg">Dropping non-keyword text from glossary '<value-of select="oc:getDivTitle(.)"/>': <value-of select="normalize-space(string-join(node()[not(self::div[starts-with(@type, 'x-keyword')])][descendant-or-self::text()[normalize-space()]],' '))"/></with-param>
 <with-param name="exp">To keep this text, set CombineGlossaries=false in config.conf.</with-param>
-          </call-template>
-        </for-each>
+            </call-template>
+          </for-each>
+        </if>
       </variable>
-      <variable name="combinedGlossary_1">
-        <apply-templates mode="preprocess" select="$combinedGlossary_0"/>
+
+      <variable name="glossaries">
+        <apply-templates mode="preprocess_glossaries" select="$combinedGlossary"/>
       </variable>
-      <apply-templates mode="preprocess_glossTocMenus" select="$combinedGlossary_1"/>
+      <variable name="preprocess">
+        <apply-templates mode="preprocess" select="$glossaries"/>
+      </variable>
+      <variable name="removeDivs">
+        <apply-templates mode="preprocess_removeDivs" select="$preprocess"/>
+      </variable>
+      <apply-templates mode="preprocess_sections" select="$removeDivs"/>
+
     </if>
   </template>
 
-  <!-- Write a single glossary that combines all other glossaries together.
-  Note: x-keyword-duplicate entries are dropped because they are included in
-  the x-aggregate glossary -->
-  <template name="WriteCombinedGlossary">
-    <param name="combinedKeywords" as="element(div)+"/>
-    <osis:osis isCombinedGlossary="yes">
-      <osis:osisText osisRefWork="{$DICTMOD}" osisIDWork="{$DICTMOD}">
-        <osis:div type="glossary">
-          <osis:milestone
-            type="x-usfm-toc{$TOC}"
-            n="[level1]{$CombindedGlossaryTitle}"
-            osisID="CombindedGlossary"/>
-          <osis:title type="main">
-            <value-of select="$CombindedGlossaryTitle"/>
-          </osis:title>
-          <for-each select="$combinedKeywords">
-            <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending"
-              collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
-            <apply-templates mode="addDisambiguationHeading" select="."/>
-          </for-each>
-        </osis:div>
-      </osis:osisText>
-    </osis:osis>
-  </template>
   <template mode="addDisambiguationHeading" match="node()|@*">
     <copy>
       <apply-templates mode="#current" select="@*"/>
@@ -2603,14 +2488,29 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         <sequence select="oo:getClassedContent(., $parentName, '+', $ec)"/>
       </when>
       <otherwise>
-        <variable name="noteSymbol">
-          <value-of select="'['"/>
-            <call-template name="getFootnoteNumber"/>
-          <value-of select="']'"/>
-        </variable>
-        <variable name="ec" select="
-          normalize-space(string-join(($class, 'xsl-note-number'), ' '))"/>
-        <sequence select="oo:getClassedContent(., $parentName, $noteSymbol, $ec)"/>
+      <!-- FB2 glossary note bodies are rendered from a variable document-node
+      which has no toc-section. -->
+        <variable name="mySection" as="element(div)?" select="
+            ancestor::div[@type='toc-section'][1]"/>
+        <sequence select="oo:getClassedContent(
+              .,
+              $parentName,
+              concat(
+                '[',
+                1 + (
+                  if ($mySection)
+                  then count(
+                    preceding::note[
+                      ancestor::div[@type='toc-section'][1] intersect
+                      $mySection
+                    ]
+                  )
+                  else count(preceding::note)
+                ),
+                ']'
+              ),
+              normalize-space(string-join(($class, 'xsl-note-number'), ' '))
+            )"/>
       </otherwise>
     </choose>
   </template>
@@ -2618,27 +2518,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   <!-- This template may be called from any note. It returns the number
   of that note within its output file -->
   <template name="getFootnoteNumber">
-    <choose>
-      <when test="ancestor-or-self::div[@glossaryGroup]"><!-- glossaries -->
-        <variable name="myGroup" as="xs:integer" select="ancestor-or-self::div[@glossaryGroup][1]/@glossaryGroup"/>
-        <variable name="firstOfMyGroup" as="element(div)"
-          select="ancestor-or-self::div[@glossaryGroup][last()]/descendant-or-self::div[@glossaryGroup=$myGroup][1]"/>
-        <value-of select="count(preceding::note) - count($firstOfMyGroup/preceding::note) + 1"/>
-      </when>
-      <when test="ancestor::div[@type='book']"><!-- books -->
-        <value-of select="count(preceding::note) - count(ancestor::div[@type='book'][1]/preceding::note) + 1"/>
-      </when>
-      <when test="ancestor::div[@type='bookGroup']"><!-- bookGroup introductions -->
-        <value-of select="count(preceding::note[not(ancestor::div[@type='book'])]) -
-                          count(ancestor::div[@type='bookGroup'][1]/preceding::note[not(ancestor::div[@type='book'])]) + 1"/>
-      </when>
-      <when test="oc:docWork(.) = $MAINMOD"><!-- main introduction -->
-        <value-of select="count(preceding::note[not(ancestor::div[@type='bookGroup'])]) + 1"/>
-      </when>
-      <otherwise>
-        <value-of select="count(preceding::note) - count(ancestor::div[last()]/preceding::note) + 1"/>
-      </otherwise>
-    </choose>
+
   </template>
 
     <!-- This template should be called from: p, l, item and canonical title.
@@ -2711,7 +2591,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         </html:span>
       </if>
       <if test="$target = 'fb2'">
-        <fb2:tmpOsisID osisID="{.}"/>
+        <fb2:tmpOsisID osisID="{oc:id(.)}"/>
       </if>
     </for-each>
     <!-- then verse numner(s) -->
@@ -2933,7 +2813,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       <otherwise>
         <value-of select="
           $tocElement[self::milestone] and
-          oc:docWork($tocElement) = $DICTMOD"/>
+          oc:docWork($tocElement) != $MAINMOD"/>
       </otherwise>
     </choose>
   </function>
@@ -2968,15 +2848,116 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       oo:inBibleChapter($reference)"/>
   </function>
 
-  <function name="oo:targetElement" as="element()*">
+  <function name="oo:targetElement" as="element()?">
     <param name="osisRef" as="xs:string"/>
-    <param name="docs" as="node()+"/>
+    <param name="docs" as="document-node()+"/>
 
     <variable name="workid" select="tokenize($osisRef, ':')[1]"/>
-    <variable name="osisRef" select="tokenize($osisRef, ':')[2]"/>
-    <for-each select="$docs/osis/osisText[@osisIDWork = $workid]">
-      <sequence select="key('osisID', $osisRef, root(.))"/>
-    </for-each>
+    <variable name="osisID" select="tokenize($osisRef, ':')[2]"/>
+    <variable name="result" as="element()?">
+      <for-each select="$docs/osis/osisText[@osisIDWork = $workid]">
+        <sequence select="key('osisID', $osisID, root(.))"/>
+      </for-each>
+    </variable>
+    <if test="not($result)">
+<call-template name="ErrorBug">
+  <with-param name="msg">This osisRef targets a non existent osisID: '<value-of select="$osisRef"/>'</with-param>
+</call-template>
+    </if>
+    <sequence select="$result"/>
+  </function>
+
+  <!-- This function should only be called during preprocessing. -->
+  <function name="oo:tocElementClasses" as="xs:string">
+    <param name="tocElement" as="element()"/>
+    <variable name="class" as="xs:string+">
+      <choose>
+        <when test="$tocElement[self::chapter]"
+        > xsl-chapter-link </when>
+        <when test="$tocElement[self::seg]"
+        > xsl-keyword-link </when>
+        <when test="
+            $isChildrensBible and
+            count(
+              $tocElement/preceding::milestone[contains(@n,'[level1]')]
+              [@type=concat('x-usfm-toc', $TOC)]
+            ) = (2,3)"
+        > xsl-bookGroup-link </when>
+        <when test="$isChildrensBible"
+        > xsl-other-link </when>
+        <when test="
+            oc:docWork($tocElement) != $MAINMOD and
+            oo:isGlossaryTOC($tocElement)"
+        > xsl-glossary-link</when>
+        <when test="oo:isBookIntroTOC($tocElement)"
+        > xsl-book-introduction-link </when>
+        <when test="oo:isBookTOC($tocElement)"
+        > xsl-book-link </when>
+        <when test="oo:isBookSubGroupTOC($tocElement)"
+        > xsl-bookSubGroup-link </when>
+        <when test="oo:isBookGroupTOC($tocElement)"
+        > xsl-bookGroup-link </when>
+        <otherwise
+        > xsl-other-link </otherwise>
+      </choose>
+      <value-of select="oc:getTocInstructions($tocElement)"/>
+      <if test="$tocElement/ancestor::div[@subType='x-navmenu-all-keywords']"
+      > xsl-atoz </if>
+    </variable>
+    <value-of select="normalize-space(string-join($class, ' '))"/>
+  </function>
+
+  <function name="oo:sections">
+    <param name="children" as="node()*"/>
+    <param name="level" as="xs:integer"/>
+    <choose>
+      <when test="$children[@sectionLevel = $level]">
+        <for-each-group select="$children" group-starting-with="*[@sectionLevel = $level]">
+          <choose>
+            <when test="
+                current()[not(@sectionLevel)] and
+                not(current-group()/
+                  descendant-or-self::*[local-name() = ('figure', 'lb')]
+                ) and
+                not(current-group()/
+                  descendant-or-self::text()[normalize-space()]
+                )">
+              <!-- without text content, this should render to nothing -->
+              <sequence select="oo:sections(current-group(), $level + 1)"/>
+            </when>
+            <otherwise>
+              <osis:div
+                  type="toc-section"
+                  annotation="{if (position() = 1) then 'yes' else 'no'}"
+                  subType="level{$level}"
+                  name="{oo:getSectionName(current-group())}"
+                  classes="{current-group()[1]/@sectionClasses}">
+                <sequence select="oo:sections(current-group(), $level + 1)"/>
+              </osis:div>
+              <if test="current()[not(@sectionLevel)]">
+                <call-template name="Error">
+<with-param name="msg">Text must not proceed the first TOC entry: '<value-of select="string-join(current-group()/normalize-space(string()), ' ')"/>'</with-param>
+<with-param name="exp">Add a toc tag or move the existing toc tag before this text.</with-param>
+                </call-template>
+              </if>
+            </otherwise>
+          </choose>
+        </for-each-group>
+      </when>
+      <when test="$level = 1">
+        <osis:div
+            type="toc-section"
+            annotation="yes"
+            subType="level{$level}"
+            name="{oo:getSectionName($children)}"
+            classes="{current-group()[1]/@sectionClasses}">
+          <apply-templates mode="preprocess_sections" select="$children"/>
+        </osis:div>
+      </when>
+      <otherwise>
+        <apply-templates mode="preprocess_sections" select="$children"/>
+      </otherwise>
+    </choose>
   </function>
 
   <function name="oo:fb2SectionContent" as="element()+">
@@ -2995,7 +2976,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
         particular elements. -->
         <for-each select="$doc/fb2:tmp/node()">
           <choose>
-            <when test="oo:okSectionChild(.)">
+            <when test="oo:fb2SectionChild(.)">
               <sequence select="."/>
               <!-- If an image is first, it cannot be followed by another image
               according to the schema, but once it's followed by a non-image,
@@ -3014,11 +2995,11 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
                 <fb2:empty-line/>
               </if>
             </when>
-            <when test="./preceding-sibling::node()[1][not(oo:okSectionChild(.))]"/>
+            <when test="./preceding-sibling::node()[1][not(oo:fb2SectionChild(.))]"/>
             <otherwise>
               <fb2:p id="{concat('p.5.', generate-id(.))}">
                 <sequence select=". | ./following-sibling::node()[
-                  . &#60;&#60; current()/following-sibling::node()[oo:okSectionChild(.)][1]
+                  . &#60;&#60; current()/following-sibling::node()[oo:fb2SectionChild(.)][1]
                 ]"/>
               </fb2:p>
             </otherwise>
@@ -3033,7 +3014,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </choose>
   </function>
 
-  <function name="oo:okSectionChild" as="xs:boolean">
+  <function name="oo:fb2SectionChild" as="xs:boolean">
     <param name="node" as="node()"/>
     <value-of select="
       $node[self::fb2:section] or
@@ -3048,11 +3029,34 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       $node[self::fb2:tmpOsisID]"/>
   </function>
 
+  <!-- This function may be called on any renderable node() (ie. a node that
+  is within a toc-section, or is a toc-section). It returns the path of the
+  output file that contains the node. -->
   <function name="oo:getFileName" as="xs:string">
     <param name="node" as="node()"/>
+    <variable name="workid" select="oc:docWork($node)"/>
     <choose>
       <when test="$target = 'html'">
-        <sequence select="oo:getFileNameHTML($node)"/>
+        <value-of select="
+            concat(
+              'html/',
+              if ($workid = $MAINMOD)
+                then ''
+                else if (
+                  $DICTMOD and
+                  $workid = $DICTMOD and
+                  root($node)[not(child::osis[@isCombinedGlossary='yes'])]
+                )
+                then 'dict/'
+                else 'comb/',
+              string-join(
+                for $n
+                  in ($node/ancestor-or-self::div[@type='toc-section'])
+                  return $n/@name,
+                '/'
+              ),
+              $htmext
+            )"/>
       </when>
       <otherwise>
         <value-of select="''"/>
@@ -3060,146 +3064,51 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </choose>
   </function>
 
-  <!-- This function may be called on any node. It returns the output
-  file that contains the node -->
-  <function name="oo:getFileNameHTML" as="xs:string">
-    <param name="node1" as="node()"/>
-
-    <variable name="node" as="node()" select="
-      if ($node1/ancestor-or-self::div)
-      then $node1
-      else $node1/(descendant::div | following::div)[1]"/>
-    <variable name="root" select="
-      if ($node/ancestor-or-self::osis[@isCombinedGlossary])
-      then 'comb'
-      else oc:docWork($node)"/>
-    <variable name="refUsfmType" select="
-      $node/ancestor-or-self::div[@type=$usfmType][last()]"/>
-    <variable name="refUsfmTypeDivNum" as="xs:decimal" select="
-      0.5 +
-      0.5 * (count($refUsfmType/descendant-or-self::div[@type=$usfmType])) +
-      count($refUsfmType/preceding::div[@type=$usfmType])"/>
-    <variable name="book" select="
-      $node/ancestor-or-self::div[@type='book'][last()]/
-      (
-        if (not(matches(@osisID, '[^ -~]')) and string-length(@osisID) &#60;= 12)
-        then @osisID
-        else concat('div', count(preceding::div))
-      )"/>
-    <!-- The group selects below must be the same as the corresponding
-    group-adjacent attributes of the divideFiles templates. Otherwise
-    the transform will fail while trying to write to an already written
-    and closed file. -->
+  <!-- Return a unique to its document, somewhat readable, name for the section
+  containing $nodes. Only the first node is examined when generating the name. -->
+  <function name="oo:getSectionName" as="xs:string">
+    <param name="nodes" as="node()+"/>
+    <variable name="tocElement" as="node()" select="
+        if ($nodes[1][self::div[starts-with(@type, 'x-keyword')]])
+        then $nodes[1]/descendant::seg[@type='keyword'][1]
+        else $nodes[1]"/>
     <choose>
-      <!-- Children's Bible nodes -->
-      <when test="$isChildrensBible">
-        <variable name="group" select="
-          0.5 +
-          0.5*count($node/ancestor-or-self::div[@type='chapter']) +
-          count($node/preceding::div[@type='chapter'])"/>
-        <value-of select="concat($root, '_Chbl_c', $group, $htmext)"/>
+      <when test="$tocElement[self::chapter]">
+        <value-of select="concat(
+            'ch_',
+            if (matches($tocElement/@osisID, '^[^\.]+\.\d+'))
+              then replace($tocElement/@osisID, '\.', '_')
+              else 1 + count(
+                $tocElement/preceding::chapter[@osisID]
+                [not(contains(@n, '[no_toc]'))]
+              )
+          )"/>
       </when>
-      <!-- Book nodes -->
-      <when test="$book">
-        <variable name="group" select="
-          count($node/descendant-or-self::chapter[starts-with(@sID, concat($book, '.'))]) +
-          count($node/preceding::chapter[starts-with(@sID, concat($book, '.'))])"/>
-        <value-of select="
-          concat($root, '_', $book, if ($eachChapterIsFile) then concat('/ch', $group) else '', $htmext)"/>
-      </when>
-      <!-- BookGroup introduction nodes -->
-      <when test="$node/ancestor::div[@type='bookGroup']">
-        <variable name="group" select="
-          0.5 +
-          0.5*count($node/descendant-or-self::div[@type='book']) +
-          count($node/preceding::div[@type='book'])"/>
-        <value-of select="concat($root, '_bookGroup-introduction_', $group, $htmext)"/>
-      </when>
-      <!-- Main module introduction nodes -->
-      <when test="$root = $MAINMOD">
-        <variable name="group" select="
-          0.5 +
-          0.5 * count($node/descendant-or-self::div[@type='bookGroup']) +
-          count($node/preceding::div[@type='bookGroup'])"/>
-        <value-of select="
-          concat($root, '_module-introduction', (if ($group &#60; 1) then '' else concat('_', $group)), $htmext)"/>
-      </when>
-      <!-- Reference OSIS glossary nodes -->
-      <when test="$node/ancestor-or-self::div[@type='glossary']">
-        <variable name="my_keywordFile" select="
-          if (
-              count(
-                $refUsfmType/descendant::seg[@type='keyword']
-                  [not(contains(@n, '[no_toc]'))]
-              ) &#60;= 1
+      <when test="$tocElement[self::seg]">
+        <value-of select="concat(
+            'kw_',
+            1 + count(
+              $tocElement/preceding::seg[@type='keyword']
+              [not(contains(@n, '[no_toc]'))]
             )
-          then 'glossary'
-          else if (
-              $refUsfmType[@annotateType='x-feature' and @annotateRef='NO_TOC']
-            )
-          then 'single'
-          else if ($keywordFile != 'AUTO')
-          then $keywordFile
-          else if (
-              count($refUsfmType/descendant::div[starts-with(@type, 'x-keyword')])
-                &#60; $keywordFileAutoThresh
-            )
-          then 'glossary'
-          else 'letter'"/>
-        <variable name="suffix">
-          <choose>
-            <when test="$my_keywordFile = 'single'">
-              <value-of>K</value-of>
-            </when>
-            <when test="$my_keywordFile = 'letter'">
-              <value-of>L</value-of>
-            </when>
-            <otherwise>
-              <value-of>G</value-of>
-            </otherwise>
-          </choose>
-        </variable>
-        <variable name="group">
-          <if test="$my_keywordFile = ('single', 'letter')">
-            <value-of select="
-              $node/
-              (ancestor-or-self::div[@glossaryGroup][1] | preceding::div[@glossaryGroup])[last()]/
-              @glossaryGroup"/>
-          </if>
-        </variable>
-        <value-of select="
-          if ($root = 'comb')
-          then concat($root, '_glossary', '/', $suffix, if ($group) then $group else '', $htmext)
-          else concat($root, '_glossary', '/div', $refUsfmTypeDivNum, '_', $suffix, if ($group) then $group else '', $htmext)"/>
+          )"/>
       </when>
-      <!-- non-glossary refUsfmType nodes -->
-      <when test="$refUsfmType">
-        <value-of select="
-          concat($root, '_', $refUsfmType/@type, '/div', $refUsfmTypeDivNum, $htmext)"/>
+      <when test="$tocElement[self::milestone]">
+        <value-of select="concat(
+            'ms_',
+            1 + count(
+              $tocElement/preceding::milestone[@type=concat('x-usfm-toc', $TOC)]
+              [not(contains(@n, '[no_toc]'))]
+            )
+          )"/>
       </when>
-      <!-- unknown type nodes (osis-converters gives osisIDs to top level divs, so use osisID)-->
       <otherwise>
-        <value-of select="
-          concat($root, '_', oc:id($node/ancestor::div[parent::osisText]/@osisID), $htmext)"/>
+        <value-of select="concat(
+            'ot_',
+            1 + count($tocElement/preceding::node())
+          )"/>
       </otherwise>
     </choose>
-  </function>
-
-  <!-- This template may be called with a Bible osisRef string. It does
-  the same thing as oo:getFileName but is much faster. -->
-  <function name="oo:getFileNameOfRef" as="xs:string">
-    <param name="osisRef" as="xs:string"/>
-    <if test="contains($osisRef, ':') and not(starts-with($osisRef, concat($MAINMOD, ':')))">
-      <call-template name="Error">
-<with-param name="msg">Bible reference <value-of select="$osisRef"/> targets a work other than <value-of select="$MAINMOD"/></with-param>
-      </call-template>
-    </if>
-    <variable name="osisRef2" select="replace($osisRef, '^[^:]*:', '')" as="xs:string"/>
-    <value-of select="concat($MAINMOD, '_',
-                             tokenize($osisRef2, '\.')[1],
-                             ( if (not($eachChapterIsFile)) then '' else
-                               concat('/ch', tokenize($osisRef2, '\.')[2]) ),
-                             $htmext)"/>
   </function>
 
 </stylesheet>
