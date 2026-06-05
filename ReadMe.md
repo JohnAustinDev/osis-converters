@@ -207,8 +207,7 @@ ENTRY | DESCRIPTION
 **Obsoletes (W)** | see: [https://wiki.crosswire.org/DevTools:conf_Files](https://wiki.crosswire.org/DevTools:conf_Files)
 **PreferredCSSXHTML (W)** | SWORD module css may be included by placing it in a `module.css` file located in a default directory (See `./bin/convert -h defaults`).
 **ProjectType** | Type of project. Options are: `bible \| childrens_bible \| commentary \| generic_book`. Default is `bible`.
-**RAM_GB_EBOOKS (S)** | The required amount of RAM, in GB, that needs to be free before the scheduler will start another eBook or HTML build. Default is 1. Increase this value if scheduled eBook builds are using too much RAM.
-**RAM_MB_EBOOKS_PERBOOK (S)** | The required amount of RAM, in MB per Bible book, that needs to be free in addition to RAM_GB_EBOOKS, before the scheduler will start another eBook or HTML build. Default is 32. This value can be used to further optimize RAM usage.
+**RAM_GB_EBOOKS (S)** | The required amount of RAM that needs to be free before the scheduler will start another eBook or HTML build. The value must either be a number (as GB) or a percent of the total RAM. Default is 1. Increase this value if scheduled eBook builds are using too much RAM.
 **REPOSITORY (PSU)** | Location where SWORD modules are published.
 **ReorderGlossaryEntries** | Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: `(true \| <regex>)`. Default is `false`.
 **ShortCopyright (LW)** | Short copyright string.

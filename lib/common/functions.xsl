@@ -433,16 +433,19 @@
               if (not($div[@emptied = 'true']))
               then $div/(
                   descendant::title[@type='main'][1] |
-                  descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n |
-                  descendant::seg[@type='keyword'][count($div//seg[@type='keyword']) = 1] |
+                  descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
+                    [not(contains(@n, '[no_toc]'))][1]/@n |
+                  descendant::seg[@type='keyword']
+                    [count($div//seg[@type='keyword']) = 1] |
                   descendant::title[@type='x-chapterLabel'][1]
-                )[1]
+                )[1]/string()
               else $div/(
                   following::title[@type='main'][1] |
-                  following::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n |
+                  following::milestone[@type=concat('x-usfm-toc', $TOC)]
+                    [not(contains(@n, '[no_toc]'))][1]/@n |
                   following::seg[@type='keyword'][count($div//seg[@type='keyword']) = 1] |
                   following::title[@type='x-chapterLabel'][1]
-                )[1]"/>
+                )[1]/string()"/>
         </otherwise>
       </choose>
     </variable>

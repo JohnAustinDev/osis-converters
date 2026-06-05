@@ -28,8 +28,7 @@ our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD,
 our ($INOSIS, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, %RESP, %OSIS_ABBR,
     $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS,
     %ANNOTATE_TYPE, %CONV_PUB_SETS, @CONV_PUB_SETS, $RAM_GB_EBOOKS,
-    $RAM_MB_EBOOKS_PERBOOK, $RAM_GB_EBOOKS_DEF, $MOD_OUTDIR,
-    $RAM_MB_EBOOKS_PERBOOK_DEF, $FB2);
+    $RAM_GB_EBOOKS_DEF, $MOD_OUTDIR, $FB2);
 
 our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
 
@@ -308,7 +307,7 @@ sub OSIS_To_ePublication {
   }
   else {
     my $forkArgs = &getForkArgs(@_);
-    $forkArgs .= " \"ramkb:".&ramNeededKB($numbks, @_[0])."\"";
+    $forkArgs .= " \"ramkb:".&ramNeededKB(@_[0])."\"";
     return $forkArgs;
   }
 }
@@ -1455,9 +1454,7 @@ sub removeAggregateEntries {
   &writeXMLFile($xml, $osisP);
 }
 
-# Approximate RAM usage line take from two points
 sub ramNeededKB {
-  my $numbks = shift; # File size in Bytes
   my $convertTo = shift;
 
   # 66 book osis2pub fork took maximum of 3068904 KB of RAM
@@ -1467,8 +1464,10 @@ sub ramNeededKB {
   # ram data is for ebooks, but html will use less
   if ($convertTo eq 'ebooks' || $convertTo eq 'html') {
     if (!$RAM_GB_EBOOKS) {$RAM_GB_EBOOKS = $RAM_GB_EBOOKS_DEF;}
-    if (!$RAM_MB_EBOOKS_PERBOOK) {$RAM_MB_EBOOKS_PERBOOK = $RAM_MB_EBOOKS_PERBOOK_DEF;}
-    return int($RAM_GB_EBOOKS * 1000000 + ($RAM_MB_EBOOKS_PERBOOK * 1000 * $numbks));
+    if ($RAM_GB_EBOOKS =~ /^(\d+)%$/) {
+      $RAM_GB_EBOOKS = ($1 / 100) * (ramInfo()->{'total'} / 1000000);
+    }
+    return int($RAM_GB_EBOOKS * 1000000);
   }
 }
 

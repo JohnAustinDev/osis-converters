@@ -25,7 +25,7 @@ our ($SCRIPT_NAME, @CONV_OSIS, @CONV_PUBS);
 
 # Argument globals
 our ($HELP, $INPD, $LOGFILE, $NO_ADDITIONAL, $CONVERSION, $MODRE,
-    $SKIPRE, $RAM_GB_EBOOKS_DEF, $RAM_MB_EBOOKS_PERBOOK_DEF);
+    $SKIPRE, $RAM_GB_EBOOKS_DEF);
 
 our (@VERSE_SYSTEMS, %CF_ADDDICTLINKS, %CONFIG_DEFAULTS,
   @CF_ADDFOOTNOTELINKS, @CF_ADDSCRIPREFLINKS, @CF_FILES, @CF_OSIS2OSIS,
@@ -321,8 +321,7 @@ our %HELP = (
       [ 'VAGRANT', 'Set to `true` to force osis-converters to run in a Vagrant VirtualBox virtual machine.' ],
       [ 'PreferredCSSXHTML', 'SWORD module css may be included by placing it in a `module.css` file located in a default directory (See HELPREF(defaults)).' ],
       [ 'ProjectType', 'Type of project. Options are: `' . join(' | ', @PROJECT_TYPES) . '`.' ],
-      [ 'RAM_GB_EBOOKS', 'The required amount of RAM, in GB, that needs to be free before the scheduler will start another eBook or HTML build. Default is '.$RAM_GB_EBOOKS_DEF.'. Increase this value if scheduled eBook builds are using too much RAM.' ],
-      [ 'RAM_MB_EBOOKS_PERBOOK', 'The required amount of RAM, in MB per Bible book, that needs to be free in addition to RAM_GB_EBOOKS, before the scheduler will start another eBook or HTML build. Default is '.$RAM_MB_EBOOKS_PERBOOK_DEF.'. This value can be used to further optimize RAM usage.' ],
+      [ 'RAM_GB_EBOOKS', 'The required amount of RAM that needs to be free before the scheduler will start another eBook or HTML build. The value must either be a number (as GB) or a percent of the total RAM. Default is '.$RAM_GB_EBOOKS_DEF.'. Increase this value if scheduled eBook builds are using too much RAM.' ],
     ], 1))],
     ['list', ['' ,''],
     [

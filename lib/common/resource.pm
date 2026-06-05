@@ -41,15 +41,7 @@ sub resourcesAvailable {
     }
   }
   # 'free' for RAM data
-  foreach my $line (split(/\n/, &shell("free", 3))) {
-    if ($line =~ /available/) {@fields = split(/\s+/, $line);} # field names
-    elsif ($line =~ /^Mem:/) { # field data
-      my $n = 0;
-      foreach my $d (split(/\s+/, $line)) {
-        $data{'free'}{@fields[$n++]} = $d;
-      }
-    }
-  }
+  $data{'free'} = ramInfo();
 
   # Get actual RAM that is required to be available.
   my $reqRAM = $reqRAMarg =~ /^(\d+)%$/ ? ($1 / 100) * $data{'free'}{'total'} : $reqRAMarg;
@@ -72,8 +64,11 @@ sub resourcesAvailable {
       $msg = "$caller is waiting for available CPU ($idle% < $reqIDLE%)...\n";
     }
     else {
-      $msg = sprintf("$caller is waiting for available RAM %.1f GB < %.1f GB)...\n",
-      $ramkb/1000000, $reqRAM/1000000);
+      $msg = sprintf(
+        "$caller is waiting for available RAM %.1f GB < %.1f GB)...\n",
+        $ramkb/1000000,
+        $reqRAM/1000000
+      );
     }
   }
   if ($msg && $msg ne $RESOURCE_MSG_LAST) {
