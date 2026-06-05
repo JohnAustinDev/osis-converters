@@ -54,26 +54,13 @@
 
     <variable name="removeGlossary" select="$removeElements[self::div[@type='glossary']]"/>
 
-    <variable name="removeKeywords" select="$removeGlossary/descendant::seg[@type='keyword']"/>
-
-    <!-- This must be the same selection that navigationMenu.xsl used to generate prev/next links -->
-    <variable name="sortedGlossaryKeywords" select="
-        //div[@type='glossary']//div[starts-with(@type, 'x-keyword')]
-        [not(@type = 'x-keyword-duplicate')]
-        [not(ancestor::div[@scope='NAVMENU'])]
-        [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
-
-    <!-- If certain glossaries are removed, remove prev-next navmenu links
-    from keywords, because otherwise some links will be broken. -->
-    <variable name="removePrevNextLinks" as="xs:boolean" select="
-        boolean(
-          $sortedGlossaryKeywords/descendant::seg[@type='keyword']
-          intersect $removeKeywords
-        )"/>
+    <variable name="removeOsisIDs" as="xs:string*" select="
+        $removeElements/descendant-or-self::*/
+        concat(oc:docWork(.), ':', @osisID)"/>
 
     <apply-templates mode="conversion" select=".">
-      <with-param name="removeElements"      select="$removeElements"      tunnel="yes"/>
-      <with-param name="removePrevNextLinks" select="$removePrevNextLinks" tunnel="yes"/>
+      <with-param name="removeElements" tunnel="yes" select="$removeElements"/>
+      <with-param name="removeOsisIDs" tunnel="yes" select="$removeOsisIDs"/>
     </apply-templates>
 
     <if test="$removeElements">
@@ -85,12 +72,6 @@
     <if test="$removeGlossary">
       <call-template name="Note">
         <with-param name="msg">Of those removed, <value-of select="count($removeGlossary)"/> are glossaries.</with-param>
-      </call-template>
-    </if>
-
-    <if test="$removePrevNextLinks">
-      <call-template name="Note">
-        <with-param name="msg">Removed ALL keyword prev/next navmenu links due to glossary removal.</with-param>
       </call-template>
     </if>
 
@@ -114,10 +95,11 @@
   </template>
 
   <!-- Remove prevnext links that are no longer valid -->
-  <template mode="conversion" match="item[@subType = 'x-prevnext-link']
-                                         [ancestor::div[starts-with(@type, 'x-keyword')]]">
-    <param name="removePrevNextLinks" as="xs:boolean" tunnel="yes"/>
-    <if test="not($removePrevNextLinks)"><next-match/></if>
+  <template mode="conversion" match="item[@subType = 'x-prevnext-link'][ancestor::div[starts-with(@type, 'x-keyword')]]">
+    <param name="removeOsisIDs" as="xs:string*" tunnel="yes"/>
+    <if test="not(descendant::reference/@osisRef = $removeOsisIDs)">
+      <next-match/>
+    </if>
   </template>
 
   <!-- Process osisRef attributes -->
