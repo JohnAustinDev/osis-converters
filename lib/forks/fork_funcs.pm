@@ -1,20 +1,20 @@
 #!/usr/bin/perl
 # This file is part of "osis-converters".
-# 
+#
 # Copyright 2020 John Austin (gpl.programs.info@gmail.com)
-#     
-# "osis-converters" is free software: you can redistribute it and/or 
-# modify it under the terms of the GNU General Public License as 
-# published by the Free Software Foundation, either version 2 of 
+#
+# "osis-converters" is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 2 of
 # the License, or (at your option) any later version.
-# 
+#
 # "osis-converters" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with "osis-converters".  If not, see 
+# along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
 use strict;
@@ -35,11 +35,11 @@ our (
   $numNoDigitRef,
   $numNoOSISRef,
   $newLinks,
-  %UnhandledWords, 
-  %missedLeftRefs, 
-  %noDigitRef, 
-  %noOSISRef, 
-  %fixDone, 
+  %UnhandledWords,
+  %missedLeftRefs,
+  %noDigitRef,
+  %noOSISRef,
+  %fixDone,
   %Types,
   %asrlworks,
 );
@@ -50,16 +50,16 @@ our @addScripRefLinks_json = (
   '$numNoDigitRef',
   '$numNoOSISRef',
   '$newLinks',
-  '%UnhandledWords', 
-  '%missedLeftRefs', 
-  '%noDigitRef', 
+  '%UnhandledWords',
+  '%missedLeftRefs',
+  '%noDigitRef',
   '%noOSISRef',
-  '%fixDone', 
+  '%fixDone',
   '%Types',
   '%asrlworks',
 );
 sub addScripRefLinks_assembleFunc {
-  
+
   &assemble('concat', '$CheckRefs');
   &assemble('sum',    '$numUnhandledWords');
   &assemble('sum',    '$numMissedLeftRefs')
@@ -90,7 +90,7 @@ our @addDictLinks_json = (
   '@EXPLICIT_GLOSSARY',
 );
 sub addDictLinks_assembleFunc {
-  
+
   &assemble('sum',  '%LINK_OSISREF');
   &assemble('sum',  '%MATCHES_USED');
   &assemble('sum',  '%EntryHits');
@@ -114,9 +114,9 @@ sub osis2pubs_assembleFunc {
 # NOTE: $TMPDIR here is that of the fork script.
 sub saveForkData {
   my $caller = &caller(shift);
-  
+
   if ($NO_FORKS =~ /\b(1|true|$caller)\b/) {return;}
-  
+
   my $json = $caller.'_json';
 
   no strict "refs";
@@ -142,9 +142,9 @@ sub saveForkData {
 # NOTE: $TMPDIR and $SCRIPT_NAME here are those of the main thread.
 sub reassembleForkData {
   my $caller = &caller(shift);
-  
+
   if ($NO_FORKS =~ /\b(1|true|$caller)\b/) {return;}
-  
+
   my $json = $caller.'_json';
   my $assembleFunc = $caller.'_assembleFunc';
 
@@ -160,7 +160,7 @@ sub reassembleForkData {
 sub readVarsJSON {
   my $varsAP = shift;
   my $dir = shift;
-  
+
   my $json = JSON::XS->new;
 
   if (opendir(FORKS, $dir)) {
@@ -187,12 +187,12 @@ sub readVarsJSON {
 sub assemble {
   my $how = shift;
   my $var = shift;
-  
+
   my $name = $var;
   my $type = ($name =~ s/^(%|@|\$)// ? $1:'');
 
   my $forkP; { no strict "refs"; $forkP = ${$name.'_forkP'}; }
-  
+
   no strict "refs";
   if ($type eq '$') {
     # Scalar globals
@@ -215,7 +215,7 @@ sub assembleHash {
   my $how = shift;
   my $dataP = shift;
   my $forkP = shift;
- 
+
   foreach my $k (keys %{$forkP}) {
     if (ref($forkP->{$k}) eq 'HASH') {
       if (!defined($dataP->{$k})) {$dataP->{$k} = {};}
@@ -235,36 +235,52 @@ sub assembleHash {
 
 sub forkTmpDirs {
   my $caller = &caller(shift);
-  
+
   my $forkTmp = "$TMPDIR/$caller.fork";
-  
+
   my @dirs;
-  
-  my $n = 1; 
+
+  my $n = 1;
   while (-e $forkTmp.'/fork_'.$n) {push(@dirs, $forkTmp.'/fork_'.$n++);}
-  
+
   return \@dirs;
 }
 
-# Put a normal argument list into the form required by forks.pm 
+# Put a normal argument list into the form required by forks.pm
 sub getForkArgs {
-  
+
   # Each argument persists until changed, so constants can be loaded
-  # by a separate getForkArgs(starts-with-arg:N, ...) call before the 
-  # function's regular getForkArgs calls. This allows constants to be 
+  # by a separate getForkArgs(starts-with-arg:N, ...) call before the
+  # function's regular getForkArgs calls. This allows constants to be
   # included with every function call without adding them repeatedly.
   my $n = 1;
   if (@_[0] =~ /^\Qstarts-with-arg:\E(\d+)/) {$n = $1; shift;}
-  
+
   return ' '.join(' ', map(&escarg('arg'.$n++.":$_"), @_));
 }
 
 sub caller {
   my $path = shift;
-  
+
   $path =~ s/^.*?\/([^\/\.]+)(\.[^\/\.]+)?$/$1/;
-  
+
   return $path;
+}
+
+sub ramInfo {
+  # 'free' for RAM data
+  my @fields;
+  my %ramInfo;
+  foreach my $line (split(/\n/, &shell("free", 3))) {
+    if ($line =~ /available/) {@fields = split(/\s+/, $line);} # field names
+    elsif ($line =~ /^Mem:/) { # field data
+      my $n = 0;
+      foreach my $d (split(/\s+/, $line)) {
+        $ramInfo{@fields[$n++]} = $d;
+      }
+    }
+  }
+  return \%ramInfo;
 }
 
 # Any fork exit codes which are to abort should be listed below.
@@ -272,9 +288,9 @@ sub handleAbort {
   my $exitCode = shift;
   my $forkFunc = shift;
   my $forkRequire = shift;
-  
+
   $exitCode = $exitCode >> 8; # remove Perl wait status of system() call
-  
+
   if ($exitCode == 2) {
     &ErrorBug("forkFunc '$forkFunc' does not exist in '$forkRequire'.\n", 1);
   } elsif ($exitCode == 255) {

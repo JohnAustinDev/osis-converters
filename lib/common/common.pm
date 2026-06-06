@@ -68,22 +68,6 @@ sub haveInternet {
   return $HAVEINTERNET;
 }
 
-sub ramInfo {
-  # 'free' for RAM data
-  my @fields;
-  my %ramInfo;
-  foreach my $line (split(/\n/, &shell("free", 3))) {
-    if ($line =~ /available/) {@fields = split(/\s+/, $line);} # field names
-    elsif ($line =~ /^Mem:/) { # field data
-      my $n = 0;
-      foreach my $d (split(/\s+/, $line)) {
-        $ramInfo{@fields[$n++]} = $d;
-      }
-    }
-  }
-  return \%ramInfo;
-}
-
 # Convert entire OSIS file to Normalization Form C (formed by canonical
 # decomposition followed by canonical composition) or another form.
 sub normalizeUnicode {

@@ -1465,7 +1465,7 @@ sub ramNeededKB {
   if ($convertTo eq 'ebooks' || $convertTo eq 'html') {
     if (!$RAM_GB_EBOOKS) {$RAM_GB_EBOOKS = $RAM_GB_EBOOKS_DEF;}
     if ($RAM_GB_EBOOKS =~ /^(\d+)%$/) {
-      $RAM_GB_EBOOKS = ($1 / 100) * (ramInfo()->{'total'} / 1000000);
+      $RAM_GB_EBOOKS = ($1 / 100) * (&ramInfo()->{'total'} / 1000000);
     }
     return int($RAM_GB_EBOOKS * 1000000);
   }

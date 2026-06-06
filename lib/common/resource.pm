@@ -19,6 +19,10 @@
 
 use strict;
 
+our ($SCRD);
+
+require("$SCRD/lib/forks/fork_funcs.pm");
+
 # Return true if CPU idle time and free RAM both surpass argument
 # values. This function also waits a specific number of seconds before
 # it returns.
@@ -41,7 +45,7 @@ sub resourcesAvailable {
     }
   }
   # 'free' for RAM data
-  $data{'free'} = ramInfo();
+  $data{'free'} = &ramInfo();
 
   # Get actual RAM that is required to be available.
   my $reqRAM = $reqRAMarg =~ /^(\d+)%$/ ? ($1 / 100) * $data{'free'}{'total'} : $reqRAMarg;
