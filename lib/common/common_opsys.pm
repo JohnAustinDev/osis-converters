@@ -1193,21 +1193,33 @@ sub isValidConfigValue {
   my $confP = shift;
 
   my $e = $fullEntry; $e =~ s/^[^\+]+\+//;
+  my $v = $confP->{$fullEntry};
 
-  if ($e =~ /Title/ && $confP->{$fullEntry} =~ / DEF$/) {
-    &Error("Using default value for $fullEntry: '".$confP->{$fullEntry}."'",
+  if ($e =~ /Title/ && $v =~ / DEF$/) {
+    &Error("Using default value for $fullEntry: '$v'",
     "Add $e=<localized-title> to the config.conf file.");
     return 0;
   }
-  elsif ($confP->{$fullEntry} eq 'DEF') {
-    &Error("Using default value for $fullEntry: '".$confP->{$fullEntry}."'",
+  elsif ($v eq 'DEF') {
+    &Error("Using default value for $fullEntry: '$v'",
     "Add $e=Updated-value to the config.conf file.");
     return 0;
   }
 
+  if ($e =~ /\bLang\b/) {
+    if ($v !~ /^\w\w\w?\-(.*)$/) {
+      &Error("Lang config value '$v' should have the form: <iso>-<script>",
+      "The value should be a two or three letter ISO language code followed by a dash and the script used in the module (Arab, Cyrl, Latn, Geor). For example: '$v-Cyrl'.");
+      return 0;
+    } elsif ($v !~ /\-(Arab|Cyrl|Latn|Geor)$/) {
+      &Warn("Unrecognized Lang config script: '$v'",
+      "Expected codes are Arab, Cyrl, Latn and Geor. Others may also be valid, if found at https://en.wikipedia.org/wiki/ISO_15924.");
+    }
+  }
+
   my $multRE = &configRE(@MULTIVALUE_CONFIGS);
-  if ($confP->{$fullEntry} =~ /<nx\/>/ && $e !~ /$multRE/) {
-    &Error("It is not allowed to have multiple '$e' entries in config.conf: ".$confP->{$fullEntry},
+  if ($v =~ /<nx\/>/ && $e !~ /$multRE/) {
+    &Error("It is not allowed to have multiple '$e' entries in config.conf: '$v'",
       "Remove all but one '$e' entries from config.conf.");
     return 0;
   }

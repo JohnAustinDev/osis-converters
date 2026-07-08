@@ -791,7 +791,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
   themselves are also copied and returned in sorted order at the end of
   each letter menu (in this case the glossary itself does not need to be
   written by the caller). -->
-  <function name="oc:glossaryMenu" as="element(div)+">
+  <function name="oc:glossaryMenu" as="element(div)*">
     <param name="glossary" as="element(div)"/>
     <param name="include_AtoZ_menu" as="xs:string"/>
     <param name="include_letter_menus" as="xs:string"/>
