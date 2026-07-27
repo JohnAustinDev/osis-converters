@@ -11,6 +11,7 @@
   
   <!-- Use the source (translator's custom) verse system -->
   <import href="./sourceVerseSystem.xsl"/>
+  <import href="./whitespace.xsl"/>
   
   <!-- Filter out any marked elements which are not intended for this conversion -->
   <import href="./conversion.xsl"/>

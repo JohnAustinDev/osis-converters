@@ -15,6 +15,8 @@
   customized verse system -->
   <import href="./fittedVerseSystem.xsl"/>
 
+  <import href="./whitespace.xsl"/>
+
   <!-- Filter out any marked elements which are not intended for this
   conversion -->
   <import href="./conversion.xsl"/>
