@@ -133,9 +133,54 @@
     </osis:hi>
   </template>
 
+  <!-- ARG_ChildrensBibleStyle=true (such as for Bible Stories) gives a
+  generic book the Children's Bible look: the CSS classes x-text-image
+  (floated pictures), x-p-first (drop-cap on each chapter's first paragraph)
+  and x-ref-cb (the parallel Scripture reference line), as childrensBible.xsl
+  does. Its figure images are also looked for in CB_Common (see cb.pm
+  getFigureLocalPath). -->
+  <param name="cbStyle" select="oc:sarg('ChildrensBibleStyle', /, 'false') = 'true'"/>
+
+  <template mode="final" match="title[@type = 'parallel'][count(@*) = 1]">
+    <choose>
+      <when test="$cbStyle">
+        <osis:title type="parallel" level="2" subType="x-right">
+          <osis:hi type="italic">
+            <attribute name="subType">x-ref-cb</attribute>
+            <apply-templates mode="#current" select="node()"/>
+          </osis:hi>
+        </osis:title>
+      </when>
+      <otherwise><next-match/></otherwise>
+    </choose>
+  </template>
+
+  <template mode="final" match="figure[@src][not(@type)][not(@subType)]">
+    <copy>
+      <if test="$cbStyle">
+        <attribute name="subType">x-text-image</attribute>
+      </if>
+      <apply-templates mode="#current" select="node()|@*"/>
+    </copy>
+  </template>
+
+  <template mode="final" match="p | lg">
+    <variable name="chapter" select="ancestor::div[@type = 'chapter'][1]"/>
+    <copy>
+      <if test="$cbStyle and $chapter and
+                . is ($chapter/descendant::*[self::p or self::lg]
+                  [ancestor::div[@type = 'chapter'][1] is $chapter]
+                  [descendant::text()[normalize-space()]
+                    [not(ancestor::title)][not(ancestor::figure)]])[1]">
+        <attribute name="subType">x-p-first</attribute>
+      </if>
+      <apply-templates mode="#current" select="node()|@*"/>
+    </copy>
+  </template>
+
   <!-- Chapter Label titles are removed by osis2html.xsl, so remove
   the type attribute for them.-->
-  <template mode="final" match="title/@type['x-chapterLabel']"/>
+  <template mode="final" match="title/@type[. = 'x-chapterLabel']"/>
 
   <!-- Make line groups indented -->
   <template mode="final" match="l[@level = '1']">
