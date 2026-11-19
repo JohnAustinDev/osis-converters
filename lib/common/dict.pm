@@ -376,7 +376,7 @@ sub glossaryLink {
   # Create the reference
   my $beforeText = $i->parentNode->textContent;
   my $t_new = $infoP->{'previousNode'}->data;
-  $t_new =~ s/^(.*)\Q$linktext\E$/$1/;
+  $t_new =~ s/^(.*)\Q$linktext\E$/$1/s;
   my $osisRef = $DICTMOD.':'.&encodeOsisRef($infoP->{'lemma'});
 
   # Handle any USFM attributes effecting the target
