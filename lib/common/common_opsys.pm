@@ -966,7 +966,11 @@ sub writeConf {
         }
 
         if ($confP->{$fullName} =~ /<nx\/>/) {
+          # Multi-value entries may repeat, but identical values are
+          # unnecessary, so write each value only once.
+          my %written;
           foreach my $val (split(/<nx\/>/, $confP->{$fullName})) {
+            if ($written{$val}++) {next;}
             print XCONF $e."=".$val."\n";
           }
         }
